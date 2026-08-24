@@ -1174,16 +1174,10 @@ a {
             closeVideoModal.addEventListener('click', hideIntroVideo);
             introVideo.addEventListener('ended', hideIntroVideo);
 
-            // Show intro video on first visit OR after login
-            const shouldShowIntroVideo = !sessionStorage.getItem('introVideoShown') || sessionStorage.getItem('showIntroVideoOnLoad') === 'true';
-            if (shouldShowIntroVideo) {
-                // Use DOMContentLoaded for faster trigger than 'load' for perceived performance
-                document.addEventListener('DOMContentLoaded', () => {
-                    showIntroVideo();
-                    sessionStorage.setItem('introVideoShown', 'true');
-                    sessionStorage.removeItem('showIntroVideoOnLoad');
-                });
-            }
+            // Intro video is disabled on initial page load.
+            // Keep the function available for explicit/manual triggers only.
+            sessionStorage.setItem('introVideoShown', 'true');
+            sessionStorage.removeItem('showIntroVideoOnLoad');
         }
 
         window.addEventListener('appinstalled', () => {

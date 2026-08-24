@@ -13,18 +13,13 @@ const videoModal = document.getElementById('videoModal');
 const closeVideoModal = document.getElementById('closeVideoModal');
 const introVideo = document.getElementById('introVideo');
 
-// Show modal on page load
-window.addEventListener('load', () => {
-    videoModal.style.display = 'flex';
-});
-
-// Close modal logic
+// Intro video popup is disabled on initial page load.
+// Keep the manual trigger available if another flow intentionally wants it.
 closeVideoModal.addEventListener('click', () => {
     videoModal.style.display = 'none';
     introVideo.pause();
 });
 
-// Show modal after sign-in/sign-up
 function showVideoAfterAuth() {
     videoModal.style.display = 'flex';
     introVideo.play();
