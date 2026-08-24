@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop - AZHA</title>
+    <link rel="stylesheet" href="app.css">
+    <style>
+        .shop-page { padding: 20px; max-width: 1400px; margin: 0 auto; }
+        .shop-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .balance-display { background: var(--panel); padding: 15px 20px; border-radius: 12px; 
+            border: 1px solid rgba(246,196,83,0.2); color: var(--gold); font-weight: bold; }
+        .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .item-card {
+            background: var(--panel-strong); border-radius: 16px; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .item-card:hover { transform: translateY(-8px); box-shadow: var(--shadow); }
+        .item-image { width: 100%; aspect-ratio: 4/3; background: rgba(255,255,255,0.05);
+            display: flex; align-items: center; justify-content: center; color: var(--muted); }
+        .item-content { padding: 16px; }
+        .item-name { font-size: 1.2rem; font-weight: bold; color: var(--text); margin-bottom: 8px; }
+        .item-rarity { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem;
+            margin-bottom: 12px; }
+        .rarity-common { background: #8B8B8B; color: white; }
+        .rarity-uncommon { background: #50C878; color: white; }
+        .rarity-rare { background: #3498DB; color: white; }
+        .rarity-epic { background: #9B59B6; color: white; }
+        .rarity-legendary { background: #FFD700; color: black; }
+        .item-price { font-size: 1.3rem; color: var(--gold); font-weight: bold; margin-bottom: 12px; }
+        .item-price-label { font-size: 0.8rem; color: var(--muted); }
+        .buy-button {
+            width: 100%; padding: 12px; background: var(--gold); color: var(--bg); border: none;
+            border-radius: 8px; cursor: pointer; font-weight: bold; transition: background 0.2s;
+        }
+        .buy-button:hover { background: #f6c453; }
+        .buy-button:disabled { background: var(--muted); cursor: not-allowed; }
+        .admin-section { background: rgba(246,196,83,0.1); border: 1px solid rgba(246,196,83,0.2);
+            border-radius: 16px; padding: 20px; margin-bottom: 30px; }
+        .admin-section h2 { color: var(--gold); margin-top: 0; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; color: var(--muted); font-size: 0.9rem; margin-bottom: 5px; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 10px; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text);
+        }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn { padding: 10px 20px; background: var(--gold); color: var(--bg); border: none;
+            border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn:hover { background: #f6c453; }
+    </style>
+</head>
+<body>
+    <div class="shop-page">
+        <div class="shop-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 style="color: var(--gold); margin: 0;">AZHA Shop</h1>
+            </div>
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <div class="balance-display">💰 Balance: <span id="userBalance">0</span> AZHA</div>
+                <a href="index.html" style="color: var(--gold); text-decoration: none; padding: 8px 16px; background: rgba(246,196,83,0.1); border-radius: 8px; border: 1px solid rgba(246,196,83,0.2); white-space: nowrap;">← Back to Launchpad</a>
+            </div>
+        </div>
+
+        <div id="adminSection" class="admin-section" style="display: none;">
+            <h2>Create New Item (CEO Only)</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Item Name</label>
+                    <input type="text" id="itemName" placeholder="Enter item name">
+                </div>
+                <div class="form-group">
+                    <label>Rarity (Preset or Custom)</label>
+                    <select id="itemRarity">
+                        <option value="common">Common</option>
+                        <option value="uncommon">Uncommon</option>
+                        <option value="rare">Rare</option>
+                        <option value="epic">Epic</option>
+                        <option value="legendary">Legendary</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                    <input type="text" id="itemCustomRarity" placeholder="Enter custom rarity name" style="display: none; margin-top: 8px;">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Price (AZHA)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="itemPrice" placeholder="0" min="0" style="flex: 1;">
+                        <button class="btn" onclick="toggleInfinitePrice()" style="padding: 10px 16px; width: auto;">∞</button>
+                    </div>
+                    <small id="priceStatus" style="color: var(--muted); margin-top: 5px;">Fixed price</small>
+                </div>
+                <div class="form-group">
+                    <label>Image URL</label>
+                    <input type="text" id="itemImage" placeholder="https://...">
+                </div>
+            </div>
+            <button class="btn" onclick="createItem()">Create Item</button>
+        </div>
+
+        <div id="itemsList" class="items-grid"></div>
+    </div>
+
+    <script>
+        const currentUser = localStorage.getItem('currentUsername');
+        let isInfinitePrice = false;
+        let userBalance = 0;
+
+        document.getElementById('itemRarity').addEventListener('change', (e) => {
+            const customInput = document.getElementById('itemCustomRarity');
+            if (e.target.value === 'custom') {
+                customInput.style.display = 'block';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+            }
+        });
+
+        function toggleInfinitePrice() {
+            isInfinitePrice = !isInfinitePrice;
+            const priceInput = document.getElementById('itemPrice');
+            const priceStatus = document.getElementById('priceStatus');
+            const btn = event.target;
+            
+            if (isInfinitePrice) {
+                priceInput.disabled = true;
+                priceInput.value = '';
+                priceStatus.textContent = '∞ Infinite price';
+                priceStatus.style.color = 'var(--gold)';
+                btn.style.background = 'var(--gold)';
+                btn.style.color = 'var(--bg)';
+            } else {
+                priceInput.disabled = false;
+                priceStatus.textContent = 'Fixed price';
+                priceStatus.style.color = 'var(--muted)';
+                btn.style.background = '';
+                btn.style.color = '';
+            }
+        }
+
+        async function loadBalance() {
+            try {
+                const res = await fetch(`/api/account/${encodeURIComponent(currentUser)}`);
+                const account = await res.json();
+                if (account) {
+                    userBalance = account.balance;
+                    document.getElementById('userBalance').textContent = account.balance || 0;
+                }
+            } catch (err) {
+                console.error('Load balance failed:', err);
+            }
+        }
+
+        async function loadItems() {
+            try {
+                const res = await fetch('/api/items');
+                const items = await res.json();
+                const itemsList = document.getElementById('itemsList');
+                itemsList.innerHTML = '';
+
+                items.forEach(item => {
+                    const priceDisplay = item.price === 'INF' ? '∞' : `${item.price}`;
+                    itemsList.innerHTML += `
+                        <div class="item-card">
+                            <div class="item-image">
+                                ${item.image ? `<img src="${item.image}" style="width: 100%; height: 100%; object-fit: cover;">` : '📦'}
+                            </div>
+                            <div class="item-content">
+                                <div class="item-name">${item.name}</div>
+                                <div class="item-rarity rarity-${item.rarity.toLowerCase()}">${item.rarity.toUpperCase()}</div>
+                                <div class="item-price-label">Price</div>
+                                <div class="item-price">${priceDisplay} ${item.price === 'INF' ? '' : 'AZHA'}</div>
+                                <button class="buy-button" onclick="buyItem('${item.id}', ${typeof item.price === 'number' ? item.price : 0})" ${item.price === 'INF' && userBalance !== 'INF' && currentUser !== 'AZHA' ? 'disabled' : ''}>
+                                    ${item.price === 'INF' ? (userBalance === 'INF' || currentUser === 'AZHA' ? 'Buy Now' : 'Infinite') : 'Buy Now'}
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                if (items.length === 0) {
+                    itemsList.innerHTML = '<p style="color: var(--muted); text-align: center; padding: 40px;">No items available yet.</p>';
+                }
+            } catch (err) {
+                console.error('Load items failed:', err);
+            }
+        }
+
+        async function buyItem(itemId, price) {
+            try {
+                const res = await fetch('/api/items/buy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: currentUser, itemId })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const itemName = data.itemName || 'Item';
+                    alert(`✅ You bought ${itemName}!`);
+                    loadBalance();
+                    loadItems();
+                } else {
+                    const error = await res.json();
+                    alert(error.error || 'Purchase failed');
+                }
+            } catch (err) {
+                console.error('Buy item failed:', err);
+            }
+        }
+
+        async function createItem() {
+            const name = document.getElementById('itemName').value.trim();
+            let rarity = document.getElementById('itemRarity').value;
+            const price = isInfinitePrice ? 'INF' : Number(document.getElementById('itemPrice').value);
+            const image = document.getElementById('itemImage').value.trim();
+
+            // Handle custom rarity
+            if (rarity === 'custom') {
+                rarity = document.getElementById('itemCustomRarity').value.trim().toLowerCase();
+                if (!rarity) {
+                    alert('Please enter a custom rarity name');
+                    return;
+                }
+            }
+
+            if (!name || (!isInfinitePrice && !price)) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: currentUser,
+                        name,
+                        rarity,
+                        price,
+                        image
+                    })
+                });
+
+                if (res.ok) {
+                    alert('Item created successfully!');
+                    document.getElementById('itemName').value = '';
+                    document.getElementById('itemPrice').value = '';
+                    document.getElementById('itemImage').value = '';
+                    document.getElementById('itemRarity').value = 'common';
+                    document.getElementById('itemCustomRarity').value = '';
+                    isInfinitePrice = false;
+                    document.getElementById('priceStatus').textContent = 'Fixed price';
+                    loadItems();
+                } else {
+                    const error = await res.json();
+                    alert(error.error || 'Failed to create item');
+                }
+            } catch (err) {
+                console.error('Create item failed:', err);
+                alert('Failed to create item: ' + err.message);
+            }
+        }
+
+        async function checkAdminStatus() {
+            try {
+                console.log('Current user:', currentUser);
+                const res = await fetch(`/api/account/${encodeURIComponent(currentUser)}`);
+                const account = await res.json();
+                console.log('Account found:', account);
+                if (account && (account.username === 'AZHA' || account.isAdmin)) {
+                    document.getElementById('adminSection').style.display = 'block';
+                    console.log('Admin section shown');
+                } else {
+                    console.log('Not admin - account.username:', account?.username, 'isAdmin:', account?.isAdmin);
+                }
+            } catch (err) {
+                console.error('Check admin status failed:', err);
+            }
+        }
+
+        setTimeout(() => {
+            if (currentUser) {
+                console.log('Shop.html initializing with currentUser:', currentUser);
+                loadBalance();
+                loadItems();
+                checkAdminStatus();
+            } else {
+                console.log('No currentUser found, redirecting to Getin.html');
+                window.location.href = 'Getin.html';
+            }
+        }, 150);
+    </script>
+    <script src="offline-sync.js"></script>
+</body>
+</html>

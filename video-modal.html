@@ -1,0 +1,90 @@
+<!-- Video Modal -->
+<div id="videoModal" class="video-modal" style="display: none;">
+    <div class="video-modal-content">
+        <span id="closeVideoModal" class="video-modal-close">&times;</span>
+        <video id="introVideo" controls autoplay>
+            <source src="assets/intro-video.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+</div>
+
+<style>
+/* Video Modal Styles */
+.video-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.video-modal-content {
+    position: relative;
+    width: 80%;
+    max-width: 800px;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.video-modal video {
+    width: 100%;
+    height: auto;
+}
+
+.video-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    color: #fff;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 10001;
+    background: rgba(0, 0, 0, 0.7);
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.video-modal-close:hover {
+    background: rgba(255, 0, 0, 0.8);
+}
+</style>
+
+<script>
+// Video Modal Logic
+const videoModal = document.getElementById('videoModal');
+const closeVideoModal = document.getElementById('closeVideoModal');
+const introVideo = document.getElementById('introVideo');
+
+// Show modal on page load
+window.addEventListener('load', () => {
+    videoModal.style.display = 'flex';
+});
+
+// Close modal logic
+closeVideoModal.addEventListener('click', () => {
+    videoModal.style.display = 'none';
+    introVideo.pause();
+});
+
+// Show modal after sign-in/sign-up
+function showVideoAfterAuth() {
+    videoModal.style.display = 'flex';
+    introVideo.play();
+}
+
+// Example: Call this function after successful sign-in/sign-up
+// showVideoAfterAuth();
+</script>

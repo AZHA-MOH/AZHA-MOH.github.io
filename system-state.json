@@ -1,0 +1,8 @@
+{
+  "isShutdown": false,
+  "shutdownMessage": "System is currently undergoing maintenance. You can still log in and sign up.",
+  "shutdownBy": "",
+  "shutdownAt": "",
+  "isMaintenanceMode": false,
+  "maintenanceMessage": "We're performing scheduled maintenance. The system will be back soon."
+}

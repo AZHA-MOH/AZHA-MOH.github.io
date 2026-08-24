@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#06131a">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="channels4profile.jpg">
+    <link rel="icon" type="image/png" sizes="192x192" href="channels4profile.jpg">
+    <title>Organization Admin | AZHA</title>
+    <script src="accounts.js"></script>
+    <style>
+        :root {
+            --bg: #061119;
+            --panel: rgba(8, 20, 29, 0.92);
+            --panel-soft: rgba(255, 255, 255, 0.05);
+            --line: rgba(255, 255, 255, 0.12);
+            --text: #f3efe4;
+            --muted: #b8c6cf;
+            --accent: #f6c453;
+            --danger: #ff8c7f;
+            --ok: #65d1b7;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Trebuchet MS", Georgia, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(246, 196, 83, 0.12), transparent 24%),
+                radial-gradient(circle at top right, rgba(101, 209, 183, 0.12), transparent 22%),
+                linear-gradient(180deg, #07141b, #03090d);
+            padding: 20px;
+        }
+        .shell {
+            width: min(1400px, 100%);
+            margin: 0 auto;
+            display: grid;
+            gap: 18px;
+        }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            padding: 22px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+            backdrop-filter: blur(12px);
+        }
+        .eyebrow {
+            margin: 0 0 10px;
+            color: var(--accent);
+            font-size: 0.82rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+        h1, h2, h3, p { margin: 0; }
+        h1 { font-size: clamp(2rem, 5vw, 3.1rem); font-family: Georgia, serif; }
+        h2 { font-size: 1.25rem; color: var(--accent); }
+        h3 { font-size: 1rem; }
+        p { color: var(--muted); line-height: 1.6; }
+        a.back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .row, .actions, .stat-grid, .org-switcher, .top-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .top-row {
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 18px;
+        }
+        .stat-card, .form-card, .member-card, .notice, .org-card {
+            background: var(--panel-soft);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 16px;
+        }
+        .org-card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+        }
+        .form-grid, .member-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .member-grid-wide {
+            display: grid;
+            grid-template-columns: 1.2fr .8fr;
+            gap: 16px;
+        }
+        input, select, textarea, button {
+            width: 100%;
+            min-height: 46px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text);
+            padding: 10px 14px;
+            font: inherit;
+        }
+        textarea { min-height: 96px; resize: vertical; }
+        button {
+            cursor: pointer;
+            font-weight: bold;
+            background: linear-gradient(135deg, var(--accent), #ffb240);
+            color: #121212;
+        }
+        button.secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+        }
+        button.danger {
+            background: rgba(255, 140, 127, 0.15);
+            color: #ffd8d2;
+            border-color: rgba(255, 140, 127, 0.3);
+        }
+        button.ok {
+            background: rgba(101, 209, 183, 0.18);
+            color: #dffff6;
+            border-color: rgba(101, 209, 183, 0.3);
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            padding: 0 12px;
+            border-radius: 999px;
+            background: rgba(246, 196, 83, 0.14);
+            border: 1px solid var(--line);
+            color: #ffe3a4;
+            font-size: 0.84rem;
+            font-weight: bold;
+        }
+        .muted-pill {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--muted);
+        }
+        .danger-pill {
+            background: rgba(255, 140, 127, 0.15);
+            color: #ffd8d2;
+        }
+        .member-list {
+            display: grid;
+            gap: 14px;
+        }
+        .member-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        .member-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .message {
+            min-height: 24px;
+            color: var(--muted);
+        }
+        .message.ok { color: var(--ok); }
+        .message.error { color: var(--danger); }
+        .hidden { display: none !important; }
+        @media (max-width: 900px) {
+            .form-grid, .member-grid, .member-grid-wide { grid-template-columns: 1fr; }
+            .top-row { flex-direction: column; }
+        }
+    </style>
+    <style>
+      body {
+        background-image: url("channels4profile.jpg");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+      }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <a href="index.html" class="back-link">Back to AZHA Launchpad</a>
+
+        <section class="panel">
+            <p class="eyebrow">Organization Panel</p>
+            <div class="top-row">
+                <div>
+                    <h1 id="panelTitle">Organization Admin Panel</h1>
+                    <p id="panelSubtitle">Manage your organization users, roles, and browser rules here.</p>
+                </div>
+                <div class="org-switcher hidden" id="orgSwitcherWrap">
+                    <select id="orgSwitcher"></select>
+                </div>
+            </div>
+            <div class="stat-grid" id="orgStats"></div>
+        </section>
+
+        <section class="panel hidden" id="createOrgPanel">
+            <p class="eyebrow">Create Organization</p>
+            <div class="form-card">
+                <div class="form-grid">
+                    <input id="newOrgName" placeholder="Organization name">
+                    <select id="newOrgKind">
+                        <option value="work">Work</option>
+                        <option value="school">School</option>
+                    </select>
+                    <input id="newOrgDomain" placeholder="Organization domain">
+                    <input id="newOrgLogoText" placeholder="Badge text">
+                </div>
+                <textarea id="newOrgDescription" placeholder="What is this organization for?"></textarea>
+                <div class="actions">
+                    <button type="button" id="createOrgButton">Create organization</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="orgDirectoryPanel">
+            <p class="eyebrow">Organizations</p>
+            <h2 id="orgDirectoryTitle">All organizations</h2>
+            <p id="orgDirectorySubtitle">AZHA can open and inspect every organization here.</p>
+            <div class="org-card-grid" id="orgDirectoryList" style="margin-top:16px;"></div>
+        </section>
+
+        <section class="panel hidden" id="managerPanel">
+            <p class="eyebrow">Accounts</p>
+            <div class="form-card">
+                <h2 id="accountFormTitle">Create organization account</h2>
+                <p>Owners, org admins, and AZHA can create school/work accounts for this organization.</p>
+                <div class="form-grid" style="margin-top:14px;">
+                    <input id="memberUsername" placeholder="Username">
+                    <input id="memberPassword" placeholder="Password">
+                    <input id="memberFullName" placeholder="Full name">
+                    <select id="memberType">
+                        <option value="school">School account</option>
+                        <option value="work">Work account</option>
+                    </select>
+                    <select id="memberRole">
+                        <option value="member">Organization member</option>
+                        <option value="admin">Organization admin</option>
+                    </select>
+                </div>
+                <div class="actions" style="margin-top:12px;">
+                    <button type="button" id="createMemberButton">Create account</button>
+                </div>
+            </div>
+            <div class="form-card" style="margin-top:16px;">
+                <h2>Add existing AZHA user</h2>
+                <p>This adds an existing AZHA account into this organization and turns it into an organization-managed account.</p>
+                <div class="form-grid" style="margin-top:14px;">
+                    <input id="existingUsername" placeholder="Existing username">
+                    <select id="existingRole">
+                        <option value="member">Organization member</option>
+                        <option value="admin">Organization admin</option>
+                    </select>
+                    <select id="existingType">
+                        <option value="school">School account</option>
+                        <option value="work">Work account</option>
+                    </select>
+                </div>
+                <div class="actions" style="margin-top:12px;">
+                    <button type="button" id="addExistingButton" class="secondary">Add existing user</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="membersPanel">
+            <p class="eyebrow">Members</p>
+            <div class="top-row" style="margin-bottom:14px;">
+                <div>
+                    <h2 id="membersTitle">Organization users</h2>
+                    <p id="membersSubtitle">Only users in this organization can be controlled here.</p>
+                </div>
+            </div>
+            <div class="member-list" id="membersList"></div>
+        </section>
+
+        <section class="panel notice hidden" id="readOnlyPanel">
+            <p class="eyebrow">Read Only</p>
+            <h2>You are an organization member</h2>
+            <p>Only the organization owner, organization admins, and AZHA can manage organization users here.</p>
+        </section>
+
+        <section class="panel">
+            <div id="pageMessage" class="message"></div>
+        </section>
+    </main>
+
+    <script>
+        const currentUsername = localStorage.getItem('currentUsername') || '';
+        let currentAccount = null;
+        let organizations = [];
+        let activeOrganization = null;
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function showMessage(text, ok = false) {
+            const el = document.getElementById('pageMessage');
+            el.textContent = text || '';
+            el.className = ok ? 'message ok' : 'message error';
+            if (!text) {
+                el.className = 'message';
+            }
+        }
+
+        async function api(url, options = {}) {
+            const response = await fetch(url, {
+                cache: 'no-store',
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(options.headers || {})
+                }
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.error || 'Request failed');
+            }
+            return data;
+        }
+
+        function orgRoleLabel(role) {
+            if (role === 'ceo') return 'CEO';
+            if (role === 'owner') return 'Owner';
+            if (role === 'admin') return 'Admin';
+            if (role === 'member') return 'Member';
+            return 'Outside';
+        }
+
+        function renderStats() {
+            const container = document.getElementById('orgStats');
+            if (!activeOrganization) {
+                container.innerHTML = `
+                    <article class="stat-card"><h3>No organization yet</h3><p>Create one or join one to manage school/work accounts.</p></article>
+                `;
+                return;
+            }
+            const admins = activeOrganization.memberAccounts.filter((member) => member.organizationRole === 'admin' || member.organizationRole === 'owner').length;
+            const warnings = activeOrganization.memberAccounts.reduce((sum, member) => sum + Number(member.orgWarnings || 0), 0);
+            container.innerHTML = `
+                <article class="stat-card"><h3>${escapeHtml(activeOrganization.name)}</h3><p>${escapeHtml(activeOrganization.kind)} organization</p></article>
+                <article class="stat-card"><h3>${activeOrganization.memberAccounts.length}</h3><p>Users in this organization</p></article>
+                <article class="stat-card"><h3>${admins}</h3><p>Owner/admin accounts</p></article>
+                <article class="stat-card"><h3>${warnings}</h3><p>Total org warnings</p></article>
+            `;
+        }
+
+        function renderOrgSwitcher() {
+            const wrap = document.getElementById('orgSwitcherWrap');
+            const select = document.getElementById('orgSwitcher');
+            if (organizations.length <= 1) {
+                wrap.classList.add('hidden');
+                return;
+            }
+            wrap.classList.remove('hidden');
+            select.innerHTML = organizations.map((organization) => `
+                <option value="${escapeHtml(organization.id)}" ${activeOrganization && organization.id === activeOrganization.id ? 'selected' : ''}>${escapeHtml(organization.name)} (${escapeHtml(orgRoleLabel(organization.role))})</option>
+            `).join('');
+        }
+
+        function renderPanels() {
+            document.getElementById('createOrgPanel').classList.toggle('hidden', organizations.length > 0 || (currentAccount && currentAccount.managedAccount));
+            document.getElementById('orgDirectoryPanel').classList.toggle('hidden', !organizations.length);
+            document.getElementById('managerPanel').classList.toggle('hidden', !(activeOrganization && activeOrganization.canManage));
+            document.getElementById('membersPanel').classList.toggle('hidden', !activeOrganization);
+            document.getElementById('readOnlyPanel').classList.toggle('hidden', !(activeOrganization && !activeOrganization.canManage));
+
+            if (!activeOrganization) {
+                document.getElementById('panelTitle').textContent = 'Organization Admin Panel';
+                document.getElementById('panelSubtitle').textContent = currentAccount && currentAccount.managedAccount
+                    ? 'This school/work account is managed by an organization.'
+                    : 'Create or load an organization to manage your organization users here.';
+                renderStats();
+                document.getElementById('membersList').innerHTML = '';
+                renderOrganizationDirectory();
+                return;
+            }
+
+            document.getElementById('panelTitle').textContent = `${activeOrganization.name} Admin Panel`;
+            document.getElementById('panelSubtitle').textContent = `${orgRoleLabel(activeOrganization.role)} access for this organization only.`;
+            document.getElementById('membersTitle').textContent = `${activeOrganization.name} users`;
+            document.getElementById('membersSubtitle').textContent = activeOrganization.canManage
+                ? 'You can only control users inside this organization.'
+                : 'You can view your organization users here.';
+            renderStats();
+            renderOrganizationDirectory();
+            renderMembers();
+        }
+
+        function renderOrganizationDirectory() {
+            const title = document.getElementById('orgDirectoryTitle');
+            const subtitle = document.getElementById('orgDirectorySubtitle');
+            const list = document.getElementById('orgDirectoryList');
+            if (!organizations.length) {
+                list.innerHTML = '';
+                return;
+            }
+            const isCEO = currentUsername === 'AZHA';
+            title.textContent = isCEO ? 'All organizations' : 'Your organizations';
+            subtitle.textContent = isCEO
+                ? 'AZHA can open every organization, including other peoples organizations.'
+                : 'These are the organizations your account belongs to.';
+            list.innerHTML = organizations.map((organization) => {
+                const adminCount = organization.memberAccounts.filter((member) => member.organizationRole === 'owner' || member.organizationRole === 'admin').length;
+                return `
+                    <article class="org-card">
+                        <h3>${escapeHtml(organization.name)}</h3>
+                        <p>${escapeHtml(organization.description || 'No description')}</p>
+                        <div class="member-meta" style="margin-top:10px;">
+                            <span class="pill">${escapeHtml(orgRoleLabel(organization.role))}</span>
+                            <span class="pill muted-pill">${escapeHtml(organization.kind || 'work')}</span>
+                            <span class="pill muted-pill">Owner: ${escapeHtml(organization.owner || 'Unknown')}</span>
+                            <span class="pill muted-pill">${organization.memberAccounts.length} users</span>
+                            <span class="pill muted-pill">${adminCount} admins</span>
+                        </div>
+                        <div class="actions" style="margin-top:12px;">
+                            <button type="button" class="secondary" onclick="selectOrganization('${escapeHtml(organization.id)}')">Open</button>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function renderMembers() {
+            const container = document.getElementById('membersList');
+            if (!activeOrganization) {
+                container.innerHTML = '';
+                return;
+            }
+            container.innerHTML = activeOrganization.memberAccounts.map((member) => {
+                const canManage = Boolean(member.canBeManagedByActor);
+                const canRevoke = activeOrganization.role === 'owner' || activeOrganization.role === 'ceo';
+                const isAdmin = member.organizationRole === 'admin';
+                const isOwner = member.organizationRole === 'owner';
+                return `
+                    <article class="member-card">
+                        <div class="member-header">
+                            <div>
+                                <h3>${escapeHtml(member.fullName || member.username)}</h3>
+                                <p>@${escapeHtml(member.username)}</p>
+                                <div class="member-meta">
+                                    <span class="pill">${escapeHtml(orgRoleLabel(member.organizationRole))}</span>
+                                    <span class="pill muted-pill">${escapeHtml(member.accountType || 'personal')}</span>
+                                    <span class="pill muted-pill">${escapeHtml(String(member.balance))} AZHA</span>
+                                    <span class="pill ${Number(member.orgWarnings || 0) > 0 ? 'danger-pill' : 'muted-pill'}">Warnings: ${Number(member.orgWarnings || 0)}</span>
+                                </div>
+                            </div>
+                            <img src="${escapeHtml(member.profilePic || 'channels4profile.jpg')}" alt="${escapeHtml(member.username)} picture" style="width:72px;height:72px;border-radius:18px;object-fit:cover;border:1px solid var(--line);">
+                        </div>
+                        <div class="member-grid-wide">
+                            <div class="form-card">
+                                <h3>Actions</h3>
+                                <div class="actions" style="margin-top:12px;">
+                                    ${canManage && !isAdmin && !isOwner ? `<button type="button" class="secondary" onclick="runMemberAction('${escapeHtml(member.username)}','makeAdmin')">Make org admin</button>` : ''}
+                                    ${canManage && isAdmin && canRevoke && !isOwner ? `<button type="button" class="secondary" onclick="runMemberAction('${escapeHtml(member.username)}','revokeAdmin')">Remove org admin</button>` : ''}
+                                    ${canManage ? `<button type="button" class="secondary" onclick="runMemberAction('${escapeHtml(member.username)}','warn')">Give warning</button>` : ''}
+                                    ${canManage ? `<button type="button" class="danger" onclick="runMemberAction('${escapeHtml(member.username)}','ban')">Ban from org</button>` : ''}
+                                    ${canManage ? `<button type="button" class="danger" onclick="runMemberAction('${escapeHtml(member.username)}','remove')">Remove from org</button>` : ''}
+                                    ${!canManage ? `<span class="pill muted-pill">You cannot manage this user here.</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="form-card">
+                                <h3>Browser</h3>
+                                <p>Only normal users in this organization can be changed here.</p>
+                                ${canManage ? `
+                                    <div class="form-grid" style="margin-top:12px;grid-template-columns:1fr;">
+                                        <textarea id="blocked-${escapeHtml(member.username)}" placeholder="Blocked domains, one per line">${escapeHtml((member.browserProfile?.controls?.blockedDomains || []).join('\n'))}</textarea>
+                                        <textarea id="allowed-${escapeHtml(member.username)}" placeholder="Allowed domains, one per line">${escapeHtml((member.browserProfile?.controls?.allowedDomains || []).join('\n'))}</textarea>
+                                        <textarea id="links-${escapeHtml(member.username)}" placeholder="Managed links: Title | https://example.com">${escapeHtml((member.browserProfile?.organization?.managedBookmarks || []).map((item) => `${item.title} | ${item.url}`).join('\n'))}</textarea>
+                                        <label><input id="strict-${escapeHtml(member.username)}" type="checkbox" style="width:auto;min-height:auto;" ${member.browserProfile?.controls?.strictMode ? 'checked' : ''}> Strict allow-list</label>
+                                        <label><input id="safe-${escapeHtml(member.username)}" type="checkbox" style="width:auto;min-height:auto;" ${member.browserProfile?.controls?.studentSafeMode ? 'checked' : ''}> Safe mode</label>
+                                    </div>
+                                    <div class="actions" style="margin-top:12px;">
+                                        <button type="button" class="ok" onclick="saveBrowserPolicy('${escapeHtml(member.username)}')">Save browser rules</button>
+                                    </div>
+                                ` : '<span class="pill muted-pill">Browser rules stay read only here.</span>'}
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function parseManagedLinks(text) {
+            return String(text || '')
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .map((line) => {
+                    const parts = line.split('|');
+                    if (parts.length === 1) {
+                        return { title: parts[0].trim(), url: parts[0].trim() };
+                    }
+                    return { title: parts[0].trim(), url: parts.slice(1).join('|').trim() };
+                })
+                .filter((item) => item.title && item.url);
+        }
+
+        function parseLines(id) {
+            return String(document.getElementById(id).value || '')
+                .split(/\r?\n/)
+                .map((line) => line.trim().toLowerCase())
+                .filter(Boolean);
+        }
+
+        async function loadOrganizations() {
+            if (!currentUsername) {
+                window.location.href = 'Getin.html';
+                return;
+            }
+            try {
+                currentAccount = typeof getCurrentAccountData === 'function' ? await getCurrentAccountData() : null;
+                organizations = await api(`/api/organizations?username=${encodeURIComponent(currentUsername)}`);
+                activeOrganization = organizations[0] || null;
+                renderOrgSwitcher();
+                renderPanels();
+            } catch (error) {
+                showMessage(error.message || 'Failed to load organizations.');
+            }
+        }
+
+        async function selectOrganization(orgId) {
+            if (!orgId) return;
+            try {
+                activeOrganization = await api(`/api/organizations/${encodeURIComponent(orgId)}?username=${encodeURIComponent(currentUsername)}`);
+                organizations = organizations.map((organization) => organization.id === activeOrganization.id ? activeOrganization : organization);
+                renderOrgSwitcher();
+                renderPanels();
+            } catch (error) {
+                showMessage(error.message || 'Failed to load this organization.');
+            }
+        }
+
+        async function createOrganization() {
+            try {
+                const payload = {
+                    username: currentUsername,
+                    name: document.getElementById('newOrgName').value.trim(),
+                    description: document.getElementById('newOrgDescription').value.trim(),
+                    kind: document.getElementById('newOrgKind').value,
+                    domain: document.getElementById('newOrgDomain').value.trim(),
+                    logoText: document.getElementById('newOrgLogoText').value.trim()
+                };
+                const result = await api('/api/organizations', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                organizations = [result.organization];
+                activeOrganization = result.organization;
+                renderOrgSwitcher();
+                renderPanels();
+                showMessage('Organization created.', true);
+            } catch (error) {
+                showMessage(error.message || 'Could not create organization.');
+            }
+        }
+
+        async function createOrganizationAccount() {
+            if (!activeOrganization) return;
+            try {
+                await api(`/api/organizations/${encodeURIComponent(activeOrganization.id)}/create-member`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        actor: currentUsername,
+                        newUsername: document.getElementById('memberUsername').value.trim(),
+                        password: document.getElementById('memberPassword').value.trim(),
+                        fullName: document.getElementById('memberFullName').value.trim(),
+                        accountType: document.getElementById('memberType').value,
+                        role: document.getElementById('memberRole').value
+                    })
+                });
+                document.getElementById('memberUsername').value = '';
+                document.getElementById('memberPassword').value = '';
+                document.getElementById('memberFullName').value = '';
+                await selectOrganization(activeOrganization.id);
+                showMessage('Organization account created.', true);
+            } catch (error) {
+                showMessage(error.message || 'Could not create organization account.');
+            }
+        }
+
+        async function addExistingUser() {
+            if (!activeOrganization) return;
+            try {
+                await api(`/api/organizations/${encodeURIComponent(activeOrganization.id)}/members`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        actor: currentUsername,
+                        targetUsername: document.getElementById('existingUsername').value.trim(),
+                        action: 'add',
+                        role: document.getElementById('existingRole').value,
+                        accountType: document.getElementById('existingType').value
+                    })
+                });
+                document.getElementById('existingUsername').value = '';
+                await selectOrganization(activeOrganization.id);
+                showMessage('Existing user added into this organization.', true);
+            } catch (error) {
+                showMessage(error.message || 'Could not add that user.');
+            }
+        }
+
+        async function runMemberAction(username, action) {
+            if (!activeOrganization) return;
+            const confirmText = action === 'ban'
+                ? `Ban ${username} from ${activeOrganization.name}?`
+                : action === 'remove'
+                    ? `Remove ${username} from ${activeOrganization.name}?`
+                    : '';
+            if (confirmText && !window.confirm(confirmText)) {
+                return;
+            }
+            try {
+                await api(`/api/organizations/${encodeURIComponent(activeOrganization.id)}/members`, {
+                    method: 'POST',
+                    body: JSON.stringify({ actor: currentUsername, targetUsername: username, action })
+                });
+                await selectOrganization(activeOrganization.id);
+                showMessage(`${username}: ${action} complete.`, true);
+            } catch (error) {
+                showMessage(error.message || `Could not ${action} ${username}.`);
+            }
+        }
+
+        async function saveBrowserPolicy(username) {
+            if (!activeOrganization) return;
+            try {
+                await api(`/api/organizations/${encodeURIComponent(activeOrganization.id)}/browser/${encodeURIComponent(username)}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        actor: currentUsername,
+                        blockedDomains: parseLines(`blocked-${username}`),
+                        allowedDomains: parseLines(`allowed-${username}`),
+                        strictMode: document.getElementById(`strict-${username}`).checked,
+                        studentSafeMode: document.getElementById(`safe-${username}`).checked,
+                        managedBookmarks: parseManagedLinks(document.getElementById(`links-${username}`).value)
+                    })
+                });
+                await selectOrganization(activeOrganization.id);
+                showMessage(`Browser rules saved for ${username}.`, true);
+            } catch (error) {
+                showMessage(error.message || `Could not save browser rules for ${username}.`);
+            }
+        }
+
+        document.getElementById('createOrgButton').addEventListener('click', createOrganization);
+        document.getElementById('createMemberButton').addEventListener('click', createOrganizationAccount);
+        document.getElementById('addExistingButton').addEventListener('click', addExistingUser);
+        document.getElementById('orgSwitcher').addEventListener('change', (event) => selectOrganization(event.target.value));
+
+        window.runMemberAction = runMemberAction;
+        window.saveBrowserPolicy = saveBrowserPolicy;
+
+        loadOrganizations();
+    </script>
+</body>
+</html>

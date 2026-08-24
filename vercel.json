@@ -1,0 +1,26 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "package.json",
+            "use": "@vercel/static-build",
+            "config": {
+                "outputDirectory": "."
+            }
+        },
+        {
+            "src": "server.js",
+            "use": "@vercel/node"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*).(js|css|html|json|png|ico|svg|woff|woff2|ttf|eot|otf)",
+            "dest": "/$1.$2"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "server.js"
+        }
+    ]
+}
