@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#06131a">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="channels4profile.png">
+    <title>CoderAzhaf | Admin Panel</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="channels4profile.png">
+    <script src="accounts.js"></script>
+    <style>
+        :root { --bg:#081119; --panel:rgba(10,22,30,.9); --line:rgba(255,255,255,.1); --text:#f4f1e8; --muted:#bfd0d8; --accent:#f2c35e; --danger:#ff8c7f; }
+        * { box-sizing:border-box; }
+        body { margin:0; min-height:100vh; font-family:"Trebuchet MS",sans-serif; color:var(--text); background:linear-gradient(rgba(5,10,15,.76), rgba(5,10,15,.88)), url("assets/profile-bg.svg") center/cover no-repeat fixed; padding:20px; }
+        .shell { width:min(1280px,100%); margin:0 auto; display:grid; gap:20px; }
+        .panel { background:var(--panel); border:1px solid var(--line); border-radius:28px; box-shadow:0 24px 80px rgba(0,0,0,.35); backdrop-filter:blur(16px); padding:24px; }
+        .eyebrow { margin:0 0 10px; color:var(--accent); text-transform:uppercase; letter-spacing:.14em; font-size:.78rem; }
+        h1 { margin-top:0; font-family:Georgia,serif; font-size:clamp(2.4rem,5vw,4rem); }
+        p { color:var(--muted); line-height:1.7; }
+        .header-row { display:flex; justify-content:space-between; gap:20px; align-items:center; flex-wrap:wrap; }
+        .admin-chip { display:flex; align-items:center; gap:14px; padding:12px 16px; border-radius:22px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); }
+        .admin-chip img { width:68px; height:68px; border-radius:20px; object-fit:cover; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); }
+        .admin-chip strong,.admin-chip span { display:block; }
+        .admin-chip span { color:var(--muted); font-size:.9rem; }
+        .toolbar { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; align-items:end; }
+        input, button { width:100%; font:inherit; }
+        input { padding:12px 14px; border-radius:16px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:var(--text); }
+        button { min-height:44px; border:0; border-radius:999px; background:linear-gradient(135deg,var(--accent),#ffae42); color:#111; font-weight:bold; cursor:pointer; }
+        .secondary { background:rgba(255,255,255,.08); color:var(--text); border:1px solid rgba(255,255,255,.12); }
+        .danger { background:rgba(255,140,127,.2); color:#fff; border:1px solid rgba(255,140,127,.45); }
+        .users { display:grid; gap:14px; }
+        .user-card { padding:18px; border-radius:22px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.04); }
+        .user-layout { display:grid; grid-template-columns:160px 1fr; gap:20px; }
+        .avatar-column { display:grid; gap:12px; align-content:start; }
+        .avatar { width:160px; height:160px; border-radius:32px; object-fit:cover; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); }
+        .avatar-caption { font-size:.9rem; color:var(--muted); }
+        .user-head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; }
+        .meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+        .meta span { padding:6px 10px; border-radius:999px; background:rgba(255,255,255,.06); color:var(--muted); font-size:.9rem; }
+        .edit-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:14px; }
+        .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+        .actions button { width:auto; padding:0 14px; }
+        .back-link { display:inline-flex; align-items:center; justify-content:center; text-decoration:none; min-height:44px; padding:0 16px; border-radius:999px; border:1px solid rgba(255,255,255,.12); color:var(--text); }
+        .message.success,.message.error { position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:1000; padding:10px 16px; border-radius:16px; }
+        @media (max-width:900px) { .toolbar{grid-template-columns:1fr;} .user-layout{grid-template-columns:1fr;} .avatar{width:120px;height:120px;} }
+    </style>
+    <style>
+      body {
+        background-image: url("channels4profile.png");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+      }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <section class="panel">
+            <div class="header-row">
+                <div>
+                    <p class="eyebrow">Admin only</p>
+                    <h1>Admin panel</h1>
+                    <p id="statusText">Checking admin access.</p>
+                </div>
+                <div class="admin-chip">
+                    <img id="adminTopAvatar" src="channels4profile.png" alt="Admin profile picture">
+                    <div>
+                        <strong id="adminTopName">Loading...</strong>
+                        <span id="adminTopRole">Checking admin access</span>
+                    </div>
+                </div>
+            </div>
+            <a class="back-link" href="index.html">Back to launchpad</a>
+        </section>
+        <section class="panel">
+            <h2>Manage AZHA</h2>
+            <div class="toolbar">
+                <input id="azincUser" type="text" placeholder="Username">
+                <input id="azincAmount" type="number" placeholder="Amount" step="1">
+                <button type="button" id="azincButton">Give AZHA</button>
+                <input id="setBalanceAmount" type="number" placeholder="Set exact AZHA" step="1">
+                <button type="button" id="setBalanceButton" class="secondary">Set AZHA</button>
+                <button type="button" id="setInfiniteButton" class="secondary">Set ∞ AZHA</button>
+            </div>
+        </section>
+        <section class="panel">
+            <h2>Create school/work account</h2>
+            <div class="edit-grid">
+                <input id="managed-username" type="text" placeholder="Username">
+                <input id="managed-password" type="text" placeholder="Password">
+                <input id="managed-fullname" type="text" placeholder="Full name">
+                <select id="managed-type">
+                    <option value="school">School account</option>
+                    <option value="work">Work account</option>
+                </select>
+                <input id="managed-org-name" type="text" placeholder="Organization name">
+                <input id="managed-org-domain" type="text" placeholder="Organization domain">
+                <input id="managed-org-logo" type="text" placeholder="Organization badge text">
+            </div>
+            <div class="actions">
+                <button type="button" id="createManagedButton">Create managed account</button>
+            </div>
+        </section>
+        <section class="panel" id="systemControlSection" style="display:none;">
+            <h2>System control</h2>
+            <p id="systemStatus">Checking system status...</p>
+            <div class="actions">
+                <button type="button" id="toggleShutdownButton">Shut down system</button>
+            </div>
+        </section>
+        <section class="panel" id="userManagementSection">
+            <h2>Users</h2>
+            <div style="margin-bottom:16px;">
+                <input id="searchUsers" type="text" placeholder="Search users by username...">
+            </div>
+            <div id="usersList" class="users"></div>
+        </section>
+    </main>
+    <script>
+        let allUsers = [];
+        function avatarFor(user) { return user.profilePic || 'azha-logo.png'; }
+        const pendingAdminPics = {};
+        function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[char])); }
+        
+        async function loadUsers(searchTerm = '') {
+            const list = document.getElementById('usersList');
+            try {
+                const actor = localStorage.getItem('currentUsername');
+                let users = await getAllUsers();
+                const actorUser = users.find((user) => user.username === actor);
+                if (actorUser?.profilePic) {
+                    document.getElementById('adminTopAvatar').src = actorUser.profilePic;
+                }
+                document.getElementById('adminTopName').textContent = actorUser?.fullName || actor || 'Admin';
+                document.getElementById('adminTopRole').textContent = actor === 'AZHA' ? 'Founder access: every account visible' : 'Admin access: AZHA stays hidden';
+                if (actor !== 'AZHA') users = users.filter((user) => user.username !== 'AZHA');
+                
+                // Filter by search term
+                if (searchTerm) {
+                    users = users.filter((user) => user.username.toLowerCase().includes(searchTerm.toLowerCase()) || user.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
+                }
+                
+                allUsers = users;
+                renderUsers(users);
+            } catch (error) {
+                list.innerHTML = '<p>Unable to load users right now.</p>';
+            }
+        }
+        
+        async function loadSystemStatus() {
+            const isCeo = localStorage.getItem('currentUsername') === 'AZHA';
+            const sectionEl = document.getElementById('systemControlSection');
+            
+            if (!isCeo) {
+                sectionEl.style.display = 'none';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/system/status');
+                const status = await response.json();
+                
+                sectionEl.style.display = 'block';
+                const statusEl = document.getElementById('systemStatus');
+                const buttonEl = document.getElementById('toggleShutdownButton');
+                
+                if (status.isShutdown) {
+                    statusEl.innerHTML = `<strong style="color:#ff8c7f;">System is currently shut down</strong><br>Shut down by: ${escapeHtml(status.shutdownBy)}<br>Time: ${new Date(status.shutdownAt).toLocaleString()}<br>Message: "${escapeHtml(status.shutdownMessage)}"`;
+                    buttonEl.textContent = 'Bring system back online';
+                } else {
+                    statusEl.innerHTML = '<strong style="color:#65d1b7;">System is online</strong>';
+                    buttonEl.textContent = 'Shut down system';
+                }
+            } catch (error) {
+                console.error('Failed to load system status:', error);
+                sectionEl.style.display = 'none';
+            }
+        }
+        
+        async function toggleSystemShutdown() {
+            const actor = localStorage.getItem('currentUsername');
+            const response = await fetch('/api/system/status');
+            const status = await response.json();
+            
+            const action = status.isShutdown ? 'bring the system back online' : 'shut down the system';
+            const message = status.isShutdown 
+                ? 'The system will be brought online. Users will have access to all features.'
+                : prompt(`Enter a message for the shutdown (or press Enter for default):\n\n"System is currently undergoing maintenance. You can still log in and sign up."`, 
+                    status.shutdownMessage || 'System is currently undergoing maintenance. You can still log in and sign up.');
+            
+            if (!status.isShutdown && message === null) return;
+            
+            try {
+                const toggleResponse = await fetch('/api/admin/system/toggle-shutdown', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        actor,
+                        message: !status.isShutdown ? message : undefined
+                    })
+                });
+                
+                if (!toggleResponse.ok) {
+                    const error = await toggleResponse.json();
+                    showMessage(error.error || 'Failed to toggle system shutdown', false);
+                    return;
+                }
+                
+                const result = await toggleResponse.json();
+                showMessage(result.message, true);
+                await loadSystemStatus();
+            } catch (error) {
+                showMessage('Error toggling system shutdown: ' + error.message, false);
+            }
+        }
+        
+        function renderUsers(users) {
+            const list = document.getElementById('usersList');
+            const isCeo = localStorage.getItem('currentUsername') === 'AZHA';
+            
+            // If user is not CEO and user management is hidden, don't render users
+            const userMgmtSection = document.getElementById('userManagementSection');
+            if (userMgmtSection && userMgmtSection.style.display === 'none') {
+                list.innerHTML = '<p>User management is restricted to CEO only.</p>';
+                return;
+            }
+            
+            list.innerHTML = users.map((user, index) => {
+                    const canDelete = user.username !== 'AZHA';
+                    const balance = user.balance === undefined ? 0 : user.balance;
+                    const banAction = user.status === 'banned' ? 'unban' : 'ban';
+                    const profilePic = escapeHtml(avatarFor(user));
+                    return `
+                        <article class="user-card">
+                            <div class="user-layout">
+                                <div class="avatar-column">
+                                    <img id="avatar-${index}" class="avatar" src="${profilePic}" alt="${user.username} profile picture">
+                                    <span class="avatar-caption">Profile picture</span>
+                                </div>
+                                <div>
+                                    <div class="user-head">
+                                        <div>
+                                            <h3>${user.username}</h3>
+                                            <p>${user.fullName}</p>
+                                        </div>
+                                        <strong>${user.isAdmin ? 'Admin' : 'User'}</strong>
+                                    </div>
+                                    <div class="meta">
+                                        <span>Status: ${user.status}</span>
+                                        <span>Warnings: ${user.warnings || 0}</span>
+                                        <span>AZHA: ${balance}</span>
+                                        <span>Membership: ${user.membership?.active ? `${user.membership.label} until ${new Date(user.membership.expiresAt).toLocaleDateString()}` : 'None'}</span>
+                                        <span>Password: ${user.password || 'No password'}</span>
+                                    </div>
+                                      <div class="edit-grid">
+                                          <input id="edit-username-${index}" value="${user.username}" placeholder="Username">
+                                          <input id="edit-fullname-${index}" value="${user.fullName}" placeholder="Full name">
+                                          <input id="edit-password-${index}" value="${user.password || ''}" placeholder="Password">
+                                          <input id="edit-pic-${index}" type="file" accept="image/*" onchange="previewAdminPic('${user.username}', ${index}, this.files[0])">
+                                          <input id="edit-org-name-${index}" value="${escapeHtml(user.browserProfile?.organization?.name || '')}" placeholder="Org name">
+                                          <select id="edit-org-type-${index}">
+                                              <option value="personal" ${user.browserProfile?.organization?.type === 'personal' ? 'selected' : ''}>Personal</option>
+                                              <option value="school" ${user.browserProfile?.organization?.type === 'school' ? 'selected' : ''}>School</option>
+                                              <option value="work" ${user.browserProfile?.organization?.type === 'work' ? 'selected' : ''}>Work</option>
+                                          </select>
+                                          <input id="edit-org-domain-${index}" value="${escapeHtml(user.browserProfile?.organization?.emailDomain || '')}" placeholder="Org domain">
+                                          <input id="edit-org-logo-${index}" value="${escapeHtml(user.browserProfile?.organization?.logoText || 'AZHA')}" placeholder="Org badge text">
+                                          <textarea id="edit-org-blocked-${index}" placeholder="Blocked domains">${escapeHtml((user.browserProfile?.controls?.blockedDomains || []).join('\n'))}</textarea>
+                                          <textarea id="edit-org-allowed-${index}" placeholder="Allowed domains">${escapeHtml((user.browserProfile?.controls?.allowedDomains || []).join('\n'))}</textarea>
+                                      </div>
+                                      <div class="actions">
+                                          <button type="button" onclick="saveUserEdits('${user.username}', ${index})">Save Edit</button>
+                                          <button type="button" class="secondary" onclick="applyBrowserOrg('${user.username}', ${index}, true)">Apply Org Browser</button>
+                                          <button type="button" class="secondary" onclick="applyBrowserOrg('${user.username}', ${index}, false)">Remove Org Browser</button>
+                                          ${isCeo && !user.isAdmin ? `<button type="button" onclick="promoteUser('${user.username}')">Make Admin</button>` : ''}
+                                          ${user.isAdmin && user.username !== 'AZHA' ? `<button type="button" class="secondary" onclick="demoteUser('${user.username}')">Remove Admin</button>` : ''}
+                                          <button type="button" class="secondary" onclick="warnSelectedUser('${user.username}')">Warn</button>
+                                        <button type="button" class="secondary" onclick="resetSelectedBalance('${user.username}')">Reset AZHA</button>
+                                        ${localStorage.getItem('currentUsername') === 'AZHA' ? `<button type="button" class="secondary" onclick="setSelectedBalanceFromCard('${user.username}', '${balance}')">Set AZHA</button>` : ''}
+                                        ${user.username !== 'AZHA' ? `<button type="button" class="secondary" onclick="toggleUserBan('${user.username}', '${banAction}')">${banAction === 'ban' ? 'Ban' : 'Unban'}</button>` : ''}
+                                        ${localStorage.getItem('currentUsername') === 'AZHA' ? `<button type="button" class="secondary" onclick="grantPlan('${user.username}', 'PLUS')">Free Plus</button><button type="button" class="secondary" onclick="grantPlan('${user.username}', 'PRO')">Free Pro</button><button type="button" class="secondary" onclick="grantPlan('${user.username}', 'AZHA')">Free AZHA</button><button type="button" class="secondary" onclick="removePlan('${user.username}')">Remove Membership</button>` : ''}
+                                        ${canDelete ? `<button type="button" class="danger" onclick="deleteSelectedUser('${user.username}')">Delete</button>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                    `;
+                }).join('');
+        }
+        async function saveUserEdits(originalUsername, index) {
+            const blockedDomains = document.getElementById(`edit-org-blocked-${index}`).value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+            const allowedDomains = document.getElementById(`edit-org-allowed-${index}`).value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+            const payload = {
+                username: document.getElementById(`edit-username-${index}`).value.trim(),
+                fullName: document.getElementById(`edit-fullname-${index}`).value.trim(),
+                password: document.getElementById(`edit-password-${index}`).value.trim(),
+                profilePic: pendingAdminPics[originalUsername],
+                browserProfile: {
+                    ...(allUsers[index]?.browserProfile || {}),
+                    organization: {
+                        ...(allUsers[index]?.browserProfile?.organization || {}),
+                        name: document.getElementById(`edit-org-name-${index}`).value.trim(),
+                        type: document.getElementById(`edit-org-type-${index}`).value,
+                        emailDomain: document.getElementById(`edit-org-domain-${index}`).value.trim(),
+                        logoText: document.getElementById(`edit-org-logo-${index}`).value.trim() || 'AZHA',
+                        managed: { ...(allUsers[index]?.browserProfile?.organization?.managed || {}) }
+                    },
+                    controls: {
+                        ...(allUsers[index]?.browserProfile?.controls || {}),
+                        blockedDomains,
+                        allowedDomains
+                    }
+                }
+            };
+            if (await updateUserFromAdmin(originalUsername, payload)) loadUsers();
+        }
+        async function applyBrowserOrg(username, index, enabled) {
+            const blockedDomains = document.getElementById(`edit-org-blocked-${index}`).value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+            const allowedDomains = document.getElementById(`edit-org-allowed-${index}`).value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+            const actor = localStorage.getItem('currentUsername') || 'Admin';
+            const payload = {
+                username: document.getElementById(`edit-username-${index}`).value.trim(),
+                fullName: document.getElementById(`edit-fullname-${index}`).value.trim(),
+                password: document.getElementById(`edit-password-${index}`).value.trim(),
+                profilePic: pendingAdminPics[username],
+                browserProfile: {
+                    ...(allUsers[index]?.browserProfile || {}),
+                    organization: {
+                        ...(allUsers[index]?.browserProfile?.organization || {}),
+                        name: document.getElementById(`edit-org-name-${index}`).value.trim(),
+                        type: document.getElementById(`edit-org-type-${index}`).value,
+                        emailDomain: document.getElementById(`edit-org-domain-${index}`).value.trim(),
+                        logoText: document.getElementById(`edit-org-logo-${index}`).value.trim() || 'AZHA',
+                        managed: {
+                            enabled,
+                            by: enabled ? actor : ''
+                        }
+                    },
+                    controls: {
+                        ...(allUsers[index]?.browserProfile?.controls || {}),
+                        blockedDomains,
+                        allowedDomains
+                    }
+                }
+            };
+            if (await updateUserFromAdmin(username, payload)) loadUsers();
+        }
+        async function previewAdminPic(username, index, file) {
+            if (!file) return;
+            try {
+                const dataUrl = await readFileAsDataUrl(file);
+                pendingAdminPics[username] = dataUrl;
+                document.getElementById(`avatar-${index}`).src = dataUrl;
+            } catch (error) { showMessage(error.message, false); }
+        }
+        async function promoteUser(username) { if (await makeAdmin(username)) loadUsers(); }
+        async function demoteUser(username) { if (await removeAdmin(username)) loadUsers(); }
+        async function warnSelectedUser(username) { if (await warnUser(username)) loadUsers(); }
+        async function resetSelectedBalance(username) { if (await resetAZINC(username)) loadUsers(); }
+        async function setSelectedBalanceFromCard(username, currentBalance) {
+            const value = prompt(`Set ${username}'s AZHA balance`, String(currentBalance ?? 0));
+            if (value === null) return;
+            const amount = Number(value);
+            if (Number.isNaN(amount) || amount < 0) { showMessage('Enter a valid AZHA amount.', false); return; }
+            if (await setExactAZHABalance(username, amount)) loadUsers();
+        }
+        async function toggleUserBan(username, action) { if (await toggleBan(username, action)) loadUsers(); }
+        async function deleteSelectedUser(username) { if (!confirm(`Delete ${username}? This removes account data and messages.`)) return; if (await deleteUserAccount(username)) loadUsers(); }
+        async function grantPlan(username, planKey) { if (await grantFreeMembership(username, planKey)) loadUsers(); }
+        async function removePlan(username) { if (await clearMembership(username)) loadUsers(); }
+        document.getElementById('createManagedButton').addEventListener('click', async () => {
+            const payload = {
+                username: document.getElementById('managed-username').value.trim(),
+                password: document.getElementById('managed-password').value.trim(),
+                fullName: document.getElementById('managed-fullname').value.trim(),
+                accountType: document.getElementById('managed-type').value,
+                orgName: document.getElementById('managed-org-name').value.trim(),
+                orgDomain: document.getElementById('managed-org-domain').value.trim(),
+                orgLogoText: document.getElementById('managed-org-logo').value.trim()
+            };
+            if (await createManagedAccount(payload)) {
+                document.getElementById('managed-username').value = '';
+                document.getElementById('managed-password').value = '';
+                document.getElementById('managed-fullname').value = '';
+                document.getElementById('managed-org-name').value = '';
+                document.getElementById('managed-org-domain').value = '';
+                document.getElementById('managed-org-logo').value = '';
+                loadUsers();
+            }
+        });
+        document.getElementById('toggleShutdownButton').addEventListener('click', toggleSystemShutdown);
+        document.getElementById('azincButton').addEventListener('click', async () => {
+            const username = document.getElementById('azincUser').value.trim();
+            const amount = Number(document.getElementById('azincAmount').value);
+            if (!username || Number.isNaN(amount)) { showMessage('Enter a username and amount.', false); return; }
+            if (await giveAZINC(username, amount)) { document.getElementById('azincAmount').value = ''; loadUsers(); }
+        });
+        document.getElementById('setBalanceButton').addEventListener('click', async () => {
+            const username = document.getElementById('azincUser').value.trim();
+            const amount = Number(document.getElementById('setBalanceAmount').value);
+            if (!username || Number.isNaN(amount) || amount < 0) { showMessage('Enter a username and exact AZHA amount.', false); return; }
+            if (await setExactAZHABalance(username, amount)) { document.getElementById('setBalanceAmount').value = ''; loadUsers(); }
+        });
+        document.getElementById('setInfiniteButton').addEventListener('click', async () => {
+            const username = document.getElementById('azincUser').value.trim();
+            if (!username) { showMessage('Enter a username.', false); return; }
+            if (await setExactAZHABalance(username, 'INF')) { document.getElementById('setBalanceAmount').value = ''; loadUsers(); }
+        });
+        async function init() {
+            // Add a small delay to ensure localStorage is synced after login
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            if (!checkLogin()) return;
+            
+            // Check if user is CEO or has AZHA membership
+            const isCeo = localStorage.getItem('currentUsername') === 'AZHA';
+            const membershipJson = localStorage.getItem('currentMembership');
+            let membership = {};
+            try {
+                membership = membershipJson ? JSON.parse(membershipJson) : {};
+            } catch (e) {
+                membership = {};
+            }
+            
+            // Check if AZHA membership is active
+            const hasAzhamembership = membership.planKey === 'AZHA' && 
+                                      membership.status === 'active' && 
+                                      membership.expiresAt && 
+                                      new Date(membership.expiresAt).getTime() > Date.now();
+            
+            const hasAdminAccess = localStorage.getItem('isAdmin') === 'true' || hasAzhamembership;
+            
+            if (!hasAdminAccess) { 
+                showMessage('You are not an admin and do not have AZHA membership.', false); 
+                window.location.href = 'index.html'; 
+                return; 
+            }
+            
+            const backend = await hasBackend();
+            
+            if (isCeo) {
+                document.getElementById('statusText').textContent = backend ? 'CEO access confirmed. AZHA can leave a password blank to keep the current one. Only AZHA can give admin access.' : 'CEO access confirmed in local fallback mode.';
+            } else if (hasAzhamembership) {
+                document.getElementById('statusText').textContent = backend ? 'AZHA Membership access confirmed. You can manage AZHA and create managed accounts. User management and system control are restricted to CEO.' : 'AZHA Membership access confirmed in local fallback mode.';
+            }
+            
+            // Hide user management section for non-CEO AZHA members
+            if (!isCeo && hasAzhamembership) {
+                document.getElementById('userManagementSection').style.display = 'none';
+            }
+            
+            // Hide infinite balance setter for non-CEO
+            if (!isCeo) {
+                document.getElementById('setBalanceAmount').style.display = 'none';
+                document.getElementById('setBalanceButton').style.display = 'none';
+                document.getElementById('setInfiniteButton').style.display = 'none';
+            }
+            
+            loadUsers();
+            loadSystemStatus();
+            
+            const searchUsersEl = document.getElementById('searchUsers');
+            if (searchUsersEl) {
+                searchUsersEl.addEventListener('input', (e) => {
+                    loadUsers(e.target.value);
+                });
+            }
+        }
+        window.saveUserEdits = saveUserEdits;
+        window.previewAdminPic = previewAdminPic;
+        window.applyBrowserOrg = applyBrowserOrg;
+        window.promoteUser = promoteUser;
+        window.demoteUser = demoteUser;
+        window.warnSelectedUser = warnSelectedUser;
+        window.resetSelectedBalance = resetSelectedBalance;
+        window.setSelectedBalanceFromCard = setSelectedBalanceFromCard;
+        window.toggleUserBan = toggleUserBan;
+        window.deleteSelectedUser = deleteSelectedUser;
+        window.grantPlan = grantPlan;
+        window.removePlan = removePlan;
+        init();
+    </script>
+</body>
+</html>
