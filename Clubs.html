@@ -477,7 +477,7 @@
                     content += `
                         <div style="background: rgba(246,196,83,0.1); padding: 15px; border-radius: 12px; margin-bottom: 20px;">
                             <h3 style="color: var(--gold); margin-top: 0;">⚙️ Club Management</h3>
-                            <p style="color: var(--muted); font-size: 0.9rem; margin-top: 0;">You are the club admin</p>
+                            <p style="color: var(--muted); font-size: 0.9rem; margin-top: 0;">You can manage this club</p>
                             
                             ${(club.joinRequests || []).length > 0 ? `
                                 <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-top: 10px;">
@@ -503,8 +503,11 @@
                                 <button class="btn" onclick="updateClubSettings('${clubId}')" style="margin-top: 8px; width: 100%;">Update Settings</button>
                             </div>
                             
-                            <div style="margin-top: 10px;">
+                            <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
                                 <button class="btn btn-secondary" onclick="showInviteModal('${clubId}')" style="width: 100%;">+ Invite Member</button>
+                                <button class="btn btn-secondary" onclick="removeClubMember('${clubId}')" style="width: 100%;">− Remove Member</button>
+                                <button class="btn btn-secondary" onclick="makeClubAdmin('${clubId}')" style="width: 100%;">👑 Make Admin</button>
+                                ${currentUser === 'AZHA' || club.owner === currentUser ? `<button class="btn btn-secondary" onclick="transferClubOwnership('${clubId}')" style="width: 100%;">🏆 Transfer Ownership</button>` : ''}
                             </div>
                         </div>
                     `;
@@ -761,6 +764,72 @@
             const username = prompt('Enter username to invite:');
             if (username) {
                 inviteMemberToClub(clubId, username);
+            }
+        }
+
+        async function removeClubMember(clubId) {
+            const targetUsername = prompt('Enter username to remove from this club:');
+            if (!targetUsername) return;
+            try {
+                const res = await fetch(`/api/clubs/${clubId}/remove-member`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: currentUser, targetUsername })
+                });
+                if (res.ok) {
+                    alert(`✓ ${targetUsername} was removed from the club.`);
+                    await loadClubDetail(clubId);
+                } else {
+                    const error = await res.json();
+                    alert(error.error || 'Failed to remove member');
+                }
+            } catch (err) {
+                console.error('Remove member failed:', err);
+                alert('Failed to remove member');
+            }
+        }
+
+        async function makeClubAdmin(clubId) {
+            const targetUsername = prompt('Enter username to make a club admin:');
+            if (!targetUsername) return;
+            try {
+                const res = await fetch(`/api/clubs/${clubId}/make-admin`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: currentUser, targetUsername })
+                });
+                if (res.ok) {
+                    alert(`✓ ${targetUsername} is now a club admin.`);
+                    await loadClubDetail(clubId);
+                } else {
+                    const error = await res.json();
+                    alert(error.error || 'Failed to make admin');
+                }
+            } catch (err) {
+                console.error('Make admin failed:', err);
+                alert('Failed to make admin');
+            }
+        }
+
+        async function transferClubOwnership(clubId) {
+            const targetUsername = prompt('Enter username to transfer ownership to:');
+            if (!targetUsername) return;
+            try {
+                const res = await fetch(`/api/clubs/${clubId}/transfer-owner`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: currentUser, targetUsername })
+                });
+                if (res.ok) {
+                    alert(`✓ Ownership transferred to ${targetUsername}.`);
+                    await loadClubDetail(clubId);
+                } else {
+                    const error = await res.json();
+                    alert(error.error || 'Failed to transfer ownership');
+                }
+            } catch (err) {
+                console.error('Transfer ownership failed:', err);
+                alert('Failed to transfer ownership');
             }
         }
 

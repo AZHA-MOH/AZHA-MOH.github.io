@@ -2789,23 +2789,25 @@ app.post('/api/items/buy', wrap(async (req, res) => {
 
 // ============ CLUBS SYSTEM ============
 function normalizeClubRecord(club = {}) {
-    const admin = String(club?.admin || '').trim();
+    const owner = String(club?.owner || club?.admin || '').trim();
+    const admin = String(club?.admin || owner || '').trim();
     const admins = Array.isArray(club?.admins)
         ? club.admins.map((value) => String(value || '').trim()).filter(Boolean)
         : [];
     const members = Array.isArray(club?.members)
         ? club.members.map((value) => String(value || '').trim()).filter(Boolean)
         : [];
-    const allAdmins = Array.from(new Set([admin, ...admins].filter(Boolean)));
-    const allMembers = Array.from(new Set([admin, ...allAdmins, ...members].filter(Boolean)));
+    const uniqueAdmins = Array.from(new Set([owner, admin, ...admins].filter(Boolean)));
+    const uniqueMembers = Array.from(new Set([owner, admin, ...uniqueAdmins, ...members].filter(Boolean)));
     return {
         id: String(club?.id || Date.now().toString(36)),
         name: String(club?.name || '').trim(),
         description: String(club?.description || '').trim(),
         icon: String(club?.icon || '').trim(),
-        admin: admin || allAdmins[0] || '',
-        admins: allAdmins.length ? allAdmins : (admin ? [admin] : []),
-        members: allMembers,
+        owner: owner || uniqueAdmins[0] || '',
+        admin: admin || uniqueAdmins[0] || '',
+        admins: uniqueAdmins.length ? uniqueAdmins : (owner ? [owner] : (admin ? [admin] : [])),
+        members: uniqueMembers,
         messages: Array.isArray(club?.messages) ? club.messages : [],
         bannedUsers: Array.isArray(club?.bannedUsers) ? club.bannedUsers.map((value) => String(value || '').trim()).filter(Boolean) : [],
         joinType: ['request', 'open'].includes(String(club?.joinType || '').toLowerCase()) ? String(club.joinType).toLowerCase() : 'request',
@@ -2816,22 +2818,46 @@ function normalizeClubRecord(club = {}) {
     };
 }
 
+function sameUsername(left, right) {
+    return String(left || '').trim().toLowerCase() === String(right || '').trim().toLowerCase();
+}
+
+function getClubOwner(club) {
+    const normalized = normalizeClubRecord(club);
+    return String(normalized.owner || normalized.admin || '').trim();
+}
+
 function getClubAdminList(club) {
-    return normalizeClubRecord(club).admins;
+    const normalized = normalizeClubRecord(club);
+    return Array.from(new Set([normalized.owner, normalized.admin, ...normalized.admins].filter(Boolean)));
+}
+
+function isClubOwner(club, username) {
+    const lowered = String(username || '').trim().toLowerCase();
+    if (!lowered) return false;
+    return sameUsername(getClubOwner(club), lowered);
 }
 
 function isClubAdminUser(club, username) {
     const lowered = String(username || '').trim().toLowerCase();
     if (!lowered) return false;
     if (lowered === 'azha') return true;
-    return getClubAdminList(club).some((value) => String(value || '').trim().toLowerCase() === lowered);
+    return getClubAdminList(club).some((value) => sameUsername(value, lowered));
+}
+
+function canManageClub(club, username) {
+    const lowered = String(username || '').trim().toLowerCase();
+    if (!lowered) return false;
+    if (lowered === 'azha') return true;
+    return isClubOwner(club, username) || isClubAdminUser(club, username);
 }
 
 function isClubVisibleToUser(club, username) {
     const normalized = normalizeClubRecord(club);
     if (!normalized.isPrivate) return true;
-    if (String(username || '').trim() === 'AZHA') return true;
-    return normalized.members.includes(username) || isClubAdminUser(normalized, username);
+    if (String(username || '').trim().toLowerCase() === 'azha') return true;
+    const lowered = String(username || '').trim().toLowerCase();
+    return normalized.members.some((member) => sameUsername(member, lowered)) || isClubAdminUser(normalized, username);
 }
 
 app.get('/api/clubs', wrap(async (req, res) => {
@@ -2843,9 +2869,9 @@ app.get('/api/clubs', wrap(async (req, res) => {
         .filter((club) => isClubVisibleToUser(club, String(username || '').trim()))
         .map((club) => ({
             ...club,
-            isMember: club.members.includes(username),
+            isMember: club.members.some((member) => sameUsername(member, username)),
             isAdmin: isClubAdminUser(club, username),
-            joinRequested: (club.joinRequests || []).some((request) => request.username === username)
+            joinRequested: (club.joinRequests || []).some((request) => sameUsername(request.username, username))
         }));
     
     res.json(allClubs);
@@ -2853,12 +2879,20 @@ app.get('/api/clubs', wrap(async (req, res) => {
 
 app.post('/api/clubs', wrap(async (req, res) => {
     const { username, name, description, icon, joinType, isPrivate } = req.body;
+    if (!String(username || '').trim()) {
+        return res.status(400).json({ error: 'A username is required to create a club.' });
+    }
     const clubs = await storage.readClubs();
+    const cleanedName = String(name || '').trim();
+    if (!cleanedName) {
+        return res.status(400).json({ error: 'Club name is required.' });
+    }
     const club = normalizeClubRecord({
         id: Date.now().toString(36),
-        name: String(name || ''),
+        name: cleanedName,
         description: String(description || ''),
         icon: String(icon || ''),
+        owner: username,
         admin: username,
         admins: [username],
         members: [username],
@@ -2905,23 +2939,130 @@ app.post('/api/clubs/:id/join', wrap(async (req, res) => {
     res.json({ message: 'Join request sent' });
 }));
 
+app.post('/api/clubs/:id/leave', wrap(async (req, res) => {
+    const { username } = req.body;
+    const { id } = req.params;
+    const clubs = await storage.readClubs();
+    const club = clubs.clubs.find(c => c.id === id);
+    if (!club) return res.status(404).json({ error: 'Club not found' });
+    if (sameUsername(getClubOwner(club), username)) {
+        return res.status(403).json({ error: 'Transfer club ownership before leaving. You cannot leave as the club owner.' });
+    }
+    club.members = club.members.filter((member) => !sameUsername(member, username));
+    club.admins = club.admins.filter((member) => !sameUsername(member, username));
+    await storage.writeClubs(clubs);
+    res.json({ message: 'Left club' });
+}));
+
+app.post('/api/clubs/:id/remove-member', wrap(async (req, res) => {
+    const { username, targetUsername } = req.body;
+    const { id } = req.params;
+    const clubs = await storage.readClubs();
+    const club = clubs.clubs.find(c => c.id === id);
+    if (!club) return res.status(404).json({ error: 'Club not found' });
+    if (!canManageClub(club, username)) {
+        return res.status(403).json({ error: 'Only the club owner or a club admin can remove members.' });
+    }
+    if (sameUsername(getClubOwner(club), targetUsername) && !sameUsername(username, 'AZHA')) {
+        return res.status(403).json({ error: 'The club owner cannot be removed unless the CEO transfers ownership.' });
+    }
+    club.members = club.members.filter((member) => !sameUsername(member, targetUsername));
+    club.admins = club.admins.filter((member) => !sameUsername(member, targetUsername));
+    if (sameUsername(getClubOwner(club), targetUsername) && sameUsername(username, 'AZHA')) {
+        club.owner = 'AZHA';
+    }
+    await storage.writeClubs(clubs);
+    res.json({ message: 'Member removed from club' });
+}));
+
+app.post('/api/clubs/:id/make-admin', wrap(async (req, res) => {
+    const { username, targetUsername } = req.body;
+    const { id } = req.params;
+    const clubs = await storage.readClubs();
+    const club = clubs.clubs.find(c => c.id === id);
+    if (!club) return res.status(404).json({ error: 'Club not found' });
+    if (!canManageClub(club, username)) {
+        return res.status(403).json({ error: 'Only the club owner or a club admin can add admins.' });
+    }
+    if (!club.members.some((member) => sameUsername(member, targetUsername))) {
+        return res.status(400).json({ error: 'User must be a member before becoming admin.' });
+    }
+    club.admins = Array.from(new Set([...(club.admins || []), targetUsername].filter(Boolean)));
+    if (!club.owner) {
+        club.owner = targetUsername;
+    }
+    await storage.writeClubs(clubs);
+    res.json({ message: 'Club admin added', club: normalizeClubRecord(club) });
+}));
+
+app.post('/api/clubs/:id/revoke-admin', wrap(async (req, res) => {
+    const { username, targetUsername } = req.body;
+    const { id } = req.params;
+    const clubs = await storage.readClubs();
+    const club = clubs.clubs.find(c => c.id === id);
+    if (!club) return res.status(404).json({ error: 'Club not found' });
+    if (!canManageClub(club, username)) {
+        return res.status(403).json({ error: 'Only the club owner or the CEO can remove club admins.' });
+    }
+    if (sameUsername(getClubOwner(club), targetUsername)) {
+        return res.status(403).json({ error: 'The club owner cannot be demoted from ownership.' });
+    }
+    club.admins = (club.admins || []).filter((member) => !sameUsername(member, targetUsername));
+    await storage.writeClubs(clubs);
+    res.json({ message: 'Club admin removed', club: normalizeClubRecord(club) });
+}));
+
+app.post('/api/clubs/:id/transfer-owner', wrap(async (req, res) => {
+    const { username, targetUsername } = req.body;
+    const { id } = req.params;
+    const clubs = await storage.readClubs();
+    const club = clubs.clubs.find(c => c.id === id);
+    if (!club) return res.status(404).json({ error: 'Club not found' });
+    if (username !== 'AZHA' && !sameUsername(getClubOwner(club), username)) {
+        return res.status(403).json({ error: 'Only the club owner or the CEO can transfer ownership.' });
+    }
+    const target = String(targetUsername || '').trim();
+    if (!target) {
+        return res.status(400).json({ error: 'Target username is required.' });
+    }
+    if (sameUsername(username, 'AZHA') && sameUsername(target, 'AZHA')) {
+        club.owner = 'AZHA';
+        club.admins = Array.from(new Set([...(club.admins || []), 'AZHA']));
+        if (!club.members.some((member) => sameUsername(member, 'AZHA'))) {
+            club.members.push('AZHA');
+        }
+        await storage.writeClubs(clubs);
+        return res.json({ message: 'CEO ownership assigned to this club', club: normalizeClubRecord(club) });
+    }
+    if (!club.members.some((member) => sameUsername(member, target))) {
+        return res.status(400).json({ error: 'Target must be a member of the club.' });
+    }
+    club.owner = target;
+    club.admins = Array.from(new Set([...(club.admins || []), target].filter(Boolean)));
+    await storage.writeClubs(clubs);
+    res.json({ message: 'Club ownership transferred', club: normalizeClubRecord(club) });
+}));
+
 app.post('/api/clubs/:id/ban', wrap(async (req, res) => {
     const { username, targetUser } = req.body;
     const { id } = req.params;
     const clubs = await storage.readClubs();
     const club = clubs.clubs.find(c => c.id === id);
     if (!club) return res.status(404).json({ error: 'Club not found' });
-    const account = await findAccount(username);
-    if (account && account.username === 'AZHA') {
-        club.bannedUsers.push(targetUser);
-        if (club.members.includes(targetUser)) club.members.splice(club.members.indexOf(targetUser), 1);
-        await storage.writeClubs(clubs);
-        return res.json({ message: 'User banned' });
+    if (String(targetUser || '').trim().toLowerCase() === 'azha' && String(username || '').trim().toLowerCase() !== 'azha') {
+        return res.status(403).json({ error: 'Club admins cannot ban AZHA.' });
     }
-    if (targetUser === 'AZHA') return res.status(403).json({ error: 'Club admins cannot ban AZHA' });
-    if (!isClubAdminUser(club, username)) return res.status(403).json({ error: 'Only club admin can ban' });
-    club.bannedUsers.push(targetUser);
-    if (club.members.includes(targetUser)) club.members.splice(club.members.indexOf(targetUser), 1);
+    if (!canManageClub(club, username)) {
+        return res.status(403).json({ error: 'Only the club owner or a club admin can ban members.' });
+    }
+    if (!club.bannedUsers.includes(targetUser)) {
+        club.bannedUsers.push(targetUser);
+    }
+    club.members = club.members.filter((member) => !sameUsername(member, targetUser));
+    club.admins = club.admins.filter((member) => !sameUsername(member, targetUser));
+    if (sameUsername(getClubOwner(club), targetUser) && sameUsername(username, 'AZHA')) {
+        club.owner = 'AZHA';
+    }
     await storage.writeClubs(clubs);
     res.json({ message: 'User banned' });
 }));
@@ -2952,8 +3093,8 @@ app.post('/api/clubs/:id/join-request/:username/accept', wrap(async (req, res) =
     const club = clubs.clubs.find(c => c.id === id);
     if (!club) return res.status(404).json({ error: 'Club not found' });
     
-    if (!isClubAdminUser(club, actor)) {
-        return res.status(403).json({ error: 'Only club admin can accept join requests' });
+    if (!canManageClub(club, actor)) {
+        return res.status(403).json({ error: 'Only the club owner or a club admin can accept join requests' });
     }
     
     if (!club.joinRequests) club.joinRequests = [];
@@ -2977,8 +3118,8 @@ app.post('/api/clubs/:id/join-request/:username/reject', wrap(async (req, res) =
     const club = clubs.clubs.find(c => c.id === id);
     if (!club) return res.status(404).json({ error: 'Club not found' });
     
-    if (!isClubAdminUser(club, actor)) {
-        return res.status(403).json({ error: 'Only club admin can reject join requests' });
+    if (!canManageClub(club, actor)) {
+        return res.status(403).json({ error: 'Only the club owner or a club admin can reject join requests' });
     }
     
     if (!club.joinRequests) club.joinRequests = [];
@@ -2999,8 +3140,8 @@ app.put('/api/clubs/:id/settings', wrap(async (req, res) => {
     const club = clubs.clubs.find(c => c.id === id);
     if (!club) return res.status(404).json({ error: 'Club not found' });
     
-    if (!isClubAdminUser(club, actor)) {
-        return res.status(403).json({ error: 'Only the CEO or club admins can change club settings' });
+    if (!canManageClub(club, actor)) {
+        return res.status(403).json({ error: 'Only the club owner, club admins, or the CEO can change club settings' });
     }
     
     if (joinType && ['request', 'open'].includes(joinType)) {
@@ -3022,8 +3163,8 @@ app.post('/api/clubs/:id/invite', wrap(async (req, res) => {
     const club = clubs.clubs.find(c => c.id === id);
     if (!club) return res.status(404).json({ error: 'Club not found' });
     
-    if (!isClubAdminUser(club, actor)) {
-        return res.status(403).json({ error: 'Only club admin can invite members' });
+    if (!canManageClub(club, actor)) {
+        return res.status(403).json({ error: 'Only the club owner or a club admin can invite members' });
     }
     
     if (club.members.includes(targetUsername)) {
@@ -3056,8 +3197,8 @@ app.post('/api/clubs/:id/announcements', wrap(async (req, res) => {
     const club = clubs.clubs.find(c => c.id === id);
     if (!club) return res.status(404).json({ error: 'Club not found' });
     
-    if (!isClubAdminUser(club, username)) {
-        return res.status(403).json({ error: 'Only the CEO or club admins can post announcements' });
+    if (!canManageClub(club, username)) {
+        return res.status(403).json({ error: 'Only the club owner, club admins, or the CEO can post announcements' });
     }
     
     if (!club.announcements) club.announcements = [];
