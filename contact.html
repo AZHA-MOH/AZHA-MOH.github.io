@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#06131a">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="channels4profile.png">
+    <title>CoderAzhaf | Website Info</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="channels4profile.png">
+    <style>
+        :root {
+            --bg: #081119;
+            --panel: rgba(10, 22, 30, 0.9);
+            --line: rgba(255, 255, 255, 0.1);
+            --text: #f4f1e8;
+            --muted: #c3d0d6;
+            --accent: #f2c35e;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Trebuchet MS", sans-serif;
+            color: var(--text);
+            background:
+                linear-gradient(rgba(5, 10, 15, 0.78), rgba(5, 10, 15, 0.86)),
+                url("azha-logo.png") center/cover no-repeat fixed;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+        }
+
+        .info-card {
+            width: min(860px, 100%);
+            padding: 28px;
+            border-radius: 28px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(16px);
+        }
+
+        .eyebrow {
+            margin: 0 0 10px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            font-size: 0.8rem;
+        }
+
+        h1 {
+            margin: 0;
+            font-family: Georgia, serif;
+            font-size: clamp(2.2rem, 5vw, 3.8rem);
+        }
+
+        p {
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .info-item {
+            padding: 18px;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .info-item span {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-size: 0.72rem;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 24px;
+            min-height: 48px;
+            padding: 0 18px;
+            border-radius: 999px;
+            text-decoration: none;
+            color: #111;
+            background: linear-gradient(135deg, var(--accent), #ffad3d);
+            font-weight: bold;
+        }
+    </style>
+    <style>
+      body {
+        background-image: url("channels4profile.png");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+      }
+    </style>
+</head>
+<body>
+    <main class="info-card">
+        <p class="eyebrow">About the site</p>
+        <h1>CoderAzhaf website information</h1>
+        <p>This page keeps the important facts about your site in a cleaner format that feels more at home on Vercel and mobile devices.</p>
+
+        <section class="info-grid">
+            <article class="info-item">
+                <span>Creator</span>
+                <strong>Azhafuddin Mohammed</strong>
+            </article>
+            <article class="info-item">
+                <span>Published With</span>
+                <strong>Vercel-ready static hosting</strong>
+            </article>
+            <article class="info-item">
+                <span>Built With</span>
+                <strong>HTML, CSS, JavaScript, and Visual Studio Code</strong>
+            </article>
+            <article class="info-item">
+                <span>Website Version</span>
+                <strong>2.6.5</strong>
+            </article>
+            <article class="info-item">
+                <span>Created On</span>
+                <strong>October 1, 2023</strong>
+            </article>
+            <article class="info-item">
+                <span>Last Updated</span>
+                <strong>April 21, 2026</strong>
+            </article>
+        </section>
+
+        <a class="back-link" href="index.html">Back to launchpad</a>
+    </main>
+</body>
+</html>

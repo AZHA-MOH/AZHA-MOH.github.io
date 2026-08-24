@@ -1,0 +1,46 @@
+{
+  "name": "AZHA Launchpad",
+  "short_name": "AZHA",
+  "description": "CoderAzhaf launchpad with accounts, messaging, media, and admin tools.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#06131a",
+  "theme_color": "#06131a",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "games", "education"],
+  "icons": [
+    {
+      "src": "channels4profile.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Messages",
+      "url": "/Message.html",
+      "description": "Open your inbox quickly"
+    },
+    {
+      "name": "Profile",
+      "url": "/Profile.html",
+      "description": "Jump into your account profile"
+    },
+    {
+      "name": "Downloads",
+      "url": "/Download.html",
+      "description": "Open your downloads page"
+    }
+  ],
+  "prefer_related_applications": false,
+  "lang": "en-US",
+  "dir": "ltr"
+}
