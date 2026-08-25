@@ -1,4 +1,4 @@
-const CACHE_NAME = 'azha-launchpad-v11';
+const CACHE_NAME = 'azha-launchpad-v12';
 const PAGES_TO_CACHE = [
     '/',
     '/index.html',
@@ -108,7 +108,7 @@ self.addEventListener('fetch', (event) => {
 
     if (isLivePage) {
         event.respondWith(
-            fetch(event.request)
+            fetch(new Request(event.request, { cache: 'no-store' }))
                 .then((response) => {
                     if (response && response.status === 200 && response.type === 'basic') {
                         const responseToCache = response.clone();
