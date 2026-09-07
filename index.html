@@ -1122,7 +1122,8 @@ a {
         window.addEventListener('beforeinstallprompt', (event) => {
             event.preventDefault();
             deferredInstallPrompt = event;
-            installButton.hidden = false;
+            const eventPlatform = String(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || '').toLowerCase();
+            installButton.hidden = eventPlatform.includes('win');
         });
 
         installButton?.addEventListener('click', async () => {
@@ -1137,10 +1138,10 @@ a {
         });
 
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-        const isChromeBrowser = /Chrome\//i.test(navigator.userAgent) || /CrOS/i.test(navigator.userAgent);
-        if (!isStandalone && isChromeBrowser) {
-            installButton.hidden = false;
-        }
+        const platform = String(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || '').toLowerCase();
+        const isWindows = platform.includes('win');
+        const isChromeOS = platform.includes('cros') || /CrOS/i.test(navigator.userAgent);
+        const isChromeBrowser = /Chrome\//i.test(navigator.userAgent) || isChromeOS;
 
         // App Installer Button
         const appInstallerButton = document.getElementById('appInstallerButton');
@@ -1163,8 +1164,19 @@ a {
             document.body.removeChild(link);
         });
 
-        // Show the desktop installer only on Windows; Chrome OS uses the PWA install button.
-        if (navigator.platform && navigator.platform.includes('Win')) {
+        // Windows uses the desktop installer; Chrome OS uses the installable PWA.
+        appInstallerButton.hidden = !isWindows;
+        if (!isStandalone && (isChromeBrowser || deferredInstallPrompt)) {
+            installButton.hidden = isWindows;
+        } else if (isWindows) {
+            installButton.hidden = true;
+        }
+        if (isChromeOS) {
+            installButton.textContent = 'Install AZHA MOH for Chrome OS';
+        } else if (isWindows) {
+            installButton.hidden = true;
+        }
+        if (isWindows) {
             appInstallerButton.hidden = false;
         }
 
