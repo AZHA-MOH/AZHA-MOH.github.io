@@ -9,6 +9,11 @@ const { createStorage } = require('./storage');
 const app = express();
 const port = process.env.PORT || 3000;
 const storage = createStorage();
+const OWNER_USERNAMES = new Set(['AZHA', 'AZHA MOH']);
+
+function isOwnerUsername(username) {
+    return OWNER_USERNAMES.has(String(username || '').trim().toUpperCase());
+}
 
 function shouldServeLegacyBrowser(req) {
     if (String(req.query?.modern || '') === '1') return false;
@@ -28,6 +33,10 @@ app.use(express.static(path.join(__dirname)));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10mb' }));
 
+app.get('/api/installer-url', (req, res) => {
+    res.json({ url: String(process.env.AZHA_INSTALLER_URL || '/azhamohsetup.exe').trim() });
+});
+
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -37,6 +46,76 @@ app.use((req, res, next) => {
     }
     next();
 });
+
+function isPrivateProxyHost(hostname) {
+    const host = String(hostname || '').toLowerCase();
+    if (host === 'localhost' || host === '::1' || host.endsWith('.local')) return true;
+    if (/^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host)) return true;
+    const private172 = host.match(/^172\.(\d+)\./);
+    return Boolean(private172 && Number(private172[1]) >= 16 && Number(private172[1]) <= 31);
+}
+
+function proxyUrlForBrowser(targetUrl) {
+    return `/api/browser-proxy?url=${encodeURIComponent(targetUrl)}`;
+}
+
+function rewriteProxiedHtml(html, targetUrl) {
+    const target = new URL(targetUrl);
+    const absolutize = (value) => {
+        try {
+            return new URL(value, target).href;
+        } catch (error) {
+            return value;
+        }
+    };
+    const shouldProxy = (value) => !/^(?:#|data:|blob:|javascript:|mailto:|tel:)/i.test(String(value || '').trim());
+    const proxyLinks = (match, prefix, value, suffix) => {
+        const absolute = absolutize(value);
+        if (!shouldProxy(value) || !/^https?:\/\//i.test(absolute)) return match;
+        return `${prefix}${proxyUrlForBrowser(absolute)}${suffix}`;
+    };
+    return String(html || '')
+        .replace(/<base[^>]*>/gi, '')
+        .replace(/(\b(?:href|action|src|poster)\s*=\s*["'])([^"']+)(["'])/gi, proxyLinks)
+        .replace(/<meta[^>]+http-equiv\s*=\s*["']?content-security-policy[^>]*>/gi, '');
+}
+
+app.get('/api/browser-proxy', wrap(async (req, res) => {
+    const rawUrl = String(req.query.url || '').trim();
+    let target;
+    try {
+        target = new URL(rawUrl);
+    } catch (error) {
+        return res.status(400).send('Invalid website URL.');
+    }
+    if (!['http:', 'https:'].includes(target.protocol) || isPrivateProxyHost(target.hostname)) {
+        return res.status(403).send('This website cannot be opened in AZHA Browser.');
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+        const response = await fetch(target.href, {
+            headers: { 'User-Agent': 'AZHA Browser/1.0' },
+            redirect: 'follow',
+            signal: controller.signal
+        });
+        if (!response.ok) return res.status(response.status).send(`Website returned ${response.status}.`);
+        const contentType = response.headers.get('content-type') || 'application/octet-stream';
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+        res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+        if (contentType.includes('text/html')) {
+            const html = await response.text();
+            return res.type('html').send(rewriteProxiedHtml(html, target.href));
+        }
+        const body = Buffer.from(await response.arrayBuffer());
+        res.type(contentType).send(body);
+    } catch (error) {
+        res.status(error.name === 'AbortError' ? 504 : 502).send('The website could not be loaded through AZHA Browser.');
+    } finally {
+        clearTimeout(timeout);
+    }
+}));
 
 // Meeting room manager for WebSocket signaling
 const meetingRooms = new Map();
@@ -103,20 +182,40 @@ async function writeMeetingsWithFallback(meetings) {
 }
 
 function getMeetingRoom(roomCode) {
-    if (!meetingRooms.has(roomCode)) {
-        meetingRooms.set(roomCode, { participants: new Map(), messages: [] });
-        // Mark room as active for cross-instance visibility
-        activeRooms.set(roomCode, { 
+    const normalizedRoom = normalizeRoomCode(roomCode);
+    if (!normalizedRoom) return null;
+    if (!meetingRooms.has(normalizedRoom)) {
+        meetingRooms.set(normalizedRoom, { participants: new Map(), messages: [] });
+        activeRooms.set(normalizedRoom, { 
             createdAt: Date.now(), 
             lastActivity: Date.now() 
         });
-    } else {
-        // Update last activity timestamp
-        if (activeRooms.has(roomCode)) {
-            activeRooms.get(roomCode).lastActivity = Date.now();
-        }
+    } else if (activeRooms.has(normalizedRoom)) {
+        activeRooms.get(normalizedRoom).lastActivity = Date.now();
     }
-    return meetingRooms.get(roomCode);
+    return meetingRooms.get(normalizedRoom);
+}
+
+function roomCodeMatches(a, b) {
+    return normalizeRoomCode(a) === normalizeRoomCode(b);
+}
+
+async function clearMeetingRoomState(roomCode) {
+    const normalizedRoom = normalizeRoomCode(roomCode);
+    if (!normalizedRoom) return;
+
+    meetingRooms.delete(normalizedRoom);
+    activeRooms.delete(normalizedRoom);
+
+    try {
+        const meetings = await readMeetingsWithFallback();
+        const remaining = meetings.filter((meeting) => normalizeRoomCode(meeting.roomCode) !== normalizedRoom && meeting.status !== 'ended');
+        if (remaining.length !== meetings.length) {
+            await writeMeetingsWithFallback(remaining);
+        }
+    } catch (error) {
+        console.warn('Failed to clear ended meeting record:', error.message);
+    }
 }
 
 // Cleanup stale rooms periodically
@@ -339,6 +438,7 @@ function normalizeStoragePreference(preference = {}) {
 function canUseSharedStorage(account) {
     if (!account) return false;
     if (account.username === 'AZHA') return true;
+        if (isOwnerUsername(account.username)) return true;
     const membership = normalizeMembershipRecord(account.membership);
     return isMembershipActive(membership) && membership.planKey === 'AZHA';
 }
@@ -401,7 +501,7 @@ function isOrganizationManagedAccount(account) {
 
 function membershipHasFeature(account, feature) {
     if (!account) return false;
-    if (account.username === 'AZHA') return true;
+    if (isOwnerUsername(account.username)) return true;
     const membership = normalizeMembershipRecord(account.membership);
     if (!isMembershipActive(membership)) return false;
     return membership.features.includes(feature);
@@ -409,6 +509,7 @@ function membershipHasFeature(account, feature) {
 
 function sanitizeDisplayBalance(username, balance) {
     if (username === 'AZHA') return 'INF';
+    if (isOwnerUsername(username)) return 'INF';
     if (balance === 'INF' || balance === Infinity || Number.isNaN(Number(balance))) return 0;
     return Number(balance || 0);
 }
@@ -417,6 +518,7 @@ function serializeAccount(account, balance) {
     const membership = serializeMembership(account.membership);
     return {
         ...account,
+        inventory: normalizeInventory(account.inventory),
         membership,
         storagePreference: serializeStoragePreference(account),
         browserProfile: normalizeBrowserProfile(account.browserProfile),
@@ -429,6 +531,22 @@ function serializeAccount(account, balance) {
         },
         balance: sanitizeDisplayBalance(account.username, balance)
     };
+}
+
+function normalizeInventory(inventory) {
+    if (inventory && typeof inventory === 'object' && !Array.isArray(inventory)) {
+        return Object.entries(inventory).reduce((result, [itemId, quantity]) => {
+            const count = Math.max(0, Number(quantity) || 0);
+            if (count > 0) result[String(itemId)] = count;
+            return result;
+        }, {});
+    }
+    if (!Array.isArray(inventory)) return {};
+    return inventory.reduce((result, purchase) => {
+        const itemId = String(purchase?.itemId || '').trim();
+        if (itemId) result[itemId] = (result[itemId] || 0) + 1;
+        return result;
+    }, {});
 }
 
 
@@ -460,6 +578,10 @@ function clearCookie(res, name) {
 
 function buildRedirectUri(req, envName, fallbackPath) {
     return process.env[envName] || `${getBaseUrl(req)}${fallbackPath}`;
+}
+
+function isSecureRequest(req) {
+    return String(req.headers['x-forwarded-proto'] || req.protocol || '').split(',')[0].trim() === 'https';
 }
 
 function missingEnv(names) {
@@ -571,7 +693,7 @@ function renderOAuthSuccess(res, account) {
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Signing you in</title></head>
 <body style="font-family:Arial,sans-serif;background:#06131a;color:#f4f2ea;display:grid;place-items:center;min-height:100vh;">
-<div style="text-align:center"><img src="channels4profile.jpg" alt="AZHA" style="width:96px;height:96px;border-radius:24px"><h1>Signing you in...</h1><p>Your ${account.authProvider || 'oauth'} account is ready.</p></div>
+<div style="text-align:center"><img src="channels4_profile.png" alt="AZHA" style="width:96px;height:96px;border-radius:24px"><h1>Signing you in...</h1><p>Your ${account.authProvider || 'oauth'} account is ready.</p></div>
 <script>
 const payload = JSON.parse(atob('${encoded}'));
 localStorage.setItem('currentUser', payload.fullName);
@@ -590,7 +712,7 @@ app.get('/api/auth/google/start', wrap(async (req, res) => {
         return res.status(400).send(`Google login is not configured yet. Missing: ${missing.join(', ')}`);
     }
     const state = crypto.randomUUID();
-    setCookie(res, 'oauth_google_state', state, { maxAge: 600 });
+    setCookie(res, 'oauth_google_state', state, { maxAge: 600, secure: isSecureRequest(req) });
     const redirectUri = buildRedirectUri(req, 'GOOGLE_REDIRECT_URI', '/api/auth/google/callback');
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID);
@@ -607,7 +729,7 @@ app.get('/api/auth/google/callback', wrap(async (req, res) => {
     if (!req.query.code || !req.query.state || cookies.oauth_google_state !== req.query.state) {
         return res.status(400).send('Google login could not be verified.');
     }
-    clearCookie(res, 'oauth_google_state');
+    setCookie(res, 'oauth_google_state', '', { maxAge: 0, secure: isSecureRequest(req) });
     const redirectUri = buildRedirectUri(req, 'GOOGLE_REDIRECT_URI', '/api/auth/google/callback');
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
@@ -730,6 +852,7 @@ async function readAccounts() {
             lastSeenAt: String(account?.lastSeenAt || ''),
             membership: normalizeMembershipRecord(account?.membership),
             storagePreference: normalizeStoragePreference(account?.storagePreference),
+            inventory: normalizeInventory(account?.inventory),
             browserProfile: normalizeBrowserProfile(account?.browserProfile)
         };
     });
@@ -2779,12 +2902,24 @@ app.post('/api/items/buy', wrap(async (req, res) => {
     }
     
     await storage.writeBalances(balances);
-    if (!account.inventory) account.inventory = [];
-    account.inventory.push({ itemId, purchasedAt: new Date().toISOString() });
+    account.inventory = normalizeInventory(account.inventory);
+    account.inventory[itemId] = (account.inventory[itemId] || 0) + 1;
     const accounts = await storage.readAccounts();
     accounts[username] = account;
     await storage.writeAccounts(accounts);
-    res.json({ message: 'Item purchased', itemName: item.name });
+    res.json({ message: 'Item purchased', itemName: item.name, quantity: account.inventory[itemId] });
+}));
+
+app.get('/api/inventory/:username', wrap(async (req, res) => {
+    const account = await findAccount(req.params.username);
+    if (!account) return res.status(404).json({ error: 'User not found' });
+    const items = await storage.readItems();
+    const inventory = normalizeInventory(account.inventory);
+    res.json(Object.entries(inventory).map(([itemId, quantity]) => ({
+        itemId,
+        quantity,
+        item: items.items.find((shopItem) => shopItem.id === itemId) || null
+    })));
 }));
 
 // ============ CLUBS SYSTEM ============
@@ -3335,23 +3470,48 @@ app.put('/api/notifications/:id/read', wrap(async (req, res) => {
 }));
 
 // ============ CEO CONTROLS ============
+app.post('/api/meetings/:roomCode/end', wrap(async (req, res) => {
+    const { username } = req.body || {};
+    const { roomCode } = req.params;
+    const normalizedRoom = normalizeRoomCode(roomCode);
+    if (!normalizedRoom) return res.status(400).json({ error: 'Invalid room code' });
+
+    const meetings = await readMeetingsWithFallback();
+    const meeting = meetings.find((item) => normalizeRoomCode(item.roomCode) === normalizedRoom && item.status !== 'ended');
+    if (!meeting && username !== 'AZHA') {
+        return res.status(404).json({ error: 'Meeting not found' });
+    }
+
+    if (meeting && meeting.host !== username && username !== 'AZHA') {
+        return res.status(403).json({ error: 'Only the host can end this meeting' });
+    }
+
+    const room = meetingRooms.get(normalizedRoom);
+    if (room) {
+        room.participants.forEach((participant) => {
+            if (participant && participant.readyState === WebSocket.OPEN) {
+                participant.send(JSON.stringify({ type: 'meeting-ended', room: normalizedRoom, endedBy: username || meeting?.host || 'host' }));
+                participant.close();
+            }
+        });
+    }
+
+    await clearMeetingRoomState(normalizedRoom);
+    res.json({ message: 'Meeting ended', roomCode: normalizedRoom });
+}));
+
 app.post('/api/ceo/meetings/:roomCode/end', wrap(async (req, res) => {
     const { username } = req.body;
     const { roomCode } = req.params;
     if (username !== 'AZHA') return res.status(403).json({ error: 'Only CEO can end meetings' });
     const meetings = await readMeetingsWithFallback();
-    const meeting = meetings.find(m => m.roomCode === roomCode);
+    const meeting = meetings.find(m => normalizeRoomCode(m.roomCode) === normalizeRoomCode(roomCode));
     if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
     meeting.endedAt = new Date().toISOString();
     meeting.active = false;
-    await writeMeetingsWithFallback(meetings);
-    const room = meetingRooms.get(normalizeRoomCode(roomCode));
-    if (room) {
-        room.participants.forEach(participant => {
-            participant.ws?.close();
-        });
-        meetingRooms.delete(normalizeRoomCode(roomCode));
-    }
+    meeting.status = 'ended';
+    await writeMeetingsWithFallback(meetings.filter(item => normalizeRoomCode(item.roomCode) !== normalizeRoomCode(roomCode)));
+    await clearMeetingRoomState(roomCode);
     res.json({ message: 'Meeting ended' });
 }));
 
@@ -3446,8 +3606,9 @@ app.post('/api/meetings', wrap(async (req, res) => {
 
     const meetings = await readMeetingsWithFallback();
     const safeCode = normalizeRoomCode(roomCode) || createMeetingCode(hostAccount.username, title);
-    if (meetings.some((meeting) => meeting.roomCode === safeCode)) {
-        return res.status(400).json({ error: 'That room code is already being used' });
+    const codeTaken = meetings.some((meeting) => roomCodeMatches(meeting.roomCode, safeCode) && String(meeting.status || '') !== 'ended');
+    if (codeTaken || activeRooms.has(safeCode)) {
+        return res.status(400).json({ error: 'That room code is already being used in another meeting.' });
     }
 
     const meeting = normalizeMeetingRecord({
@@ -3491,70 +3652,38 @@ app.delete('/api/meetings/:id', wrap(async (req, res) => {
 
 app.get('/api/meeting/:roomCode', wrap(async (req, res) => {
     const username = String(req.query.username || '').trim();
-    const account = await findAccount(username);
-    if (!account) {
-        return res.status(404).json({ error: 'User not found' });
+    if (username) {
+        const account = await findAccount(username);
+        if (!account) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        if (!membershipHasFeature(account, 'meetings')) {
+            return res.status(403).json({ error: 'Meetings are locked. Upgrade to MAX.' });
+        }
     }
-    if (!membershipHasFeature(account, 'meetings')) {
-        return res.status(403).json({ error: 'Meetings are locked. Upgrade to MAX.' });
-    }
+
     const inputCode = String(req.params.roomCode || '').trim();
     const roomCode = normalizeRoomCode(inputCode);
+    if (!roomCode || !/^[a-z0-9-]+$/.test(roomCode)) {
+        return res.json({ roomCode, active: false, exists: false, participants: [], participantCount: 0, host: '', hostControls: null });
+    }
+
     const room = meetingRooms.get(roomCode);
     const isRoomActive = activeRooms.has(roomCode);
-    
-    // Check if meeting exists in database OR has active connections
     const meetings = await readMeetingsWithFallback();
-    const meetingExists = meetings.some((m) => normalizeRoomCode(m.roomCode) === roomCode);
-    
-    // A meeting exists if:
-    // 1. It's scheduled in the database, OR
-    // 2. It has active participants on this instance, OR
-    // 3. It was recently created for on-demand joining
-    const shouldExist = meetingExists || isRoomActive || room;
-    
-    if (!room && !isRoomActive && !meetingExists) {
-        const validFormat = /^[a-z0-9-]+$/.test(roomCode) && roomCode.length > 0;
-        if (validFormat) {
-            const liveMeeting = normalizeMeetingRecord({
-                id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-                title: `${account.username} AZHA Meeting`,
-                roomCode,
-                host: account.username,
-                startsAt: new Date().toISOString(),
-                note: '',
-                createdAt: new Date().toISOString(),
-                status: 'live'
-            });
-            meetings.push(liveMeeting);
-            await writeMeetingsWithFallback(meetings);
-            getMeetingRoom(roomCode);
-            const participants = [];
-            return res.json({
-                roomCode,
-                active: false,
-                exists: true,
-                participants,
-                participantCount: 0,
-                host: account.username,
-                hostControls: liveMeeting.hostControls
-            });
-        }
-        return res.json({ 
-            roomCode, 
-            active: false, 
-            exists: false,
-            participants: [],
-            participantCount: 0 
-        });
+    const meetingExists = meetings.some((m) => roomCodeMatches(m.roomCode, roomCode) && String(m.status || '') !== 'ended');
+    const exists = meetingExists || Boolean(room) || isRoomActive;
+
+    if (!exists) {
+        return res.json({ roomCode, active: false, exists: false, participants: [], participantCount: 0, host: '', hostControls: null });
     }
 
     const participants = room ? Array.from(room.participants.keys()) : [];
-    const existingMeeting = meetings.find((meeting) => normalizeRoomCode(meeting.roomCode) === roomCode);
+    const existingMeeting = meetings.find((meeting) => roomCodeMatches(meeting.roomCode, roomCode) && String(meeting.status || '') !== 'ended');
     res.json({
         roomCode,
         active: Boolean(room || isRoomActive),
-        exists: shouldExist,
+        exists: true,
         participants,
         participantCount: participants.length,
         host: existingMeeting?.host || '',
@@ -3574,11 +3703,18 @@ async function buildOrganizationResponse(organization, actor = '') {
     const memberAccounts = orderedMembers
         .map((username) => accounts[username])
         .filter(Boolean)
-        .map((account) => ({
-            ...serializeAccount(account, balances[account.username]),
-            organizationRole: getOrganizationRole(organization, account.username),
-            canBeManagedByActor: canActorManageTargetInOrganization(organization, actor, account.username)
-        }));
+        .map((account) => {
+            const organizationRole = getOrganizationRole(organization, account.username);
+            const memberAccount = {
+                ...serializeAccount(account, balances[account.username]),
+                organizationRole,
+                canBeManagedByActor: canActorManageTargetInOrganization(organization, actor, account.username)
+            };
+            if (!isOrganizationManager(organization, actor) || organizationRole !== 'member') {
+                delete memberAccount.password;
+            }
+            return memberAccount;
+        });
     return {
         ...organization,
         role: getOrganizationRole(organization, actor),
@@ -4046,7 +4182,9 @@ if (require.main === module) {
                     if (targetClient && targetClient.readyState === WebSocket.OPEN) {
                         targetClient.send(JSON.stringify({
                             type: message.type,
+                            room: message.room,
                             from: message.from,
+                            to: message.to,
                             data: message.data
                         }));
                     }
