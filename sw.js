@@ -1,4 +1,4 @@
-const CACHE_NAME = 'azha-launchpad-v12';
+const CACHE_NAME = 'azha-launchpad-v14';
 const PAGES_TO_CACHE = [
     '/',
     '/index.html',
@@ -22,8 +22,10 @@ const PAGES_TO_CACHE = [
 const urlsToCache = [
     '/manifest.json',
     '/AZHA.PNG',
-    'azha-logo.png',
-    'channels4profile.png',
+    'icon-192.png',
+    'icon-512.png',
+    'channels4_profile.png',
+    'channels4_profile.png',
     'icon-512.png',
     'profile-bg.jpg',
     'website-video.mp4',

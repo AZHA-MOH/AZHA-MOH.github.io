@@ -842,8 +842,8 @@ a {
             </div>
             <aside class="profile-card">
                 <div class="profile-logos">
-                    <img id="profileLogo" class="profile-logo" src="channels4_profile.png" alt="AZHA MOH logo"/>
-                    <img id="userProfilePic" class="profile-user-pic" src="channels4_profile.png" alt="Your profile picture" hidden/>
+                    <img id="profileLogo" class="profile-logo" src="/channels4_profile.png" alt="AZHA MOH logo" onerror="this.onerror=null;this.src='/icon-512.png';"/>
+                    <img id="userProfilePic" class="profile-user-pic" src="/channels4_profile.png" alt="Your profile picture" hidden onerror="this.onerror=null;this.src='/icon-512.png';"/>
                 </div>
                 <p class="profile-label">Current status</p>
                 <h2 id="welcomeName">Visitor</h2>
@@ -1126,12 +1126,21 @@ a {
         });
 
         installButton?.addEventListener('click', async () => {
-            if (!deferredInstallPrompt) return;
+            if (!deferredInstallPrompt) {
+                alert('To install AZHA MOH, open the Chrome menu, choose Save and share, then select Install page as app.');
+                return;
+            }
             deferredInstallPrompt.prompt();
             await deferredInstallPrompt.userChoice;
             deferredInstallPrompt = null;
             installButton.hidden = true;
         });
+
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        const isChromeBrowser = /Chrome\//i.test(navigator.userAgent) || /CrOS/i.test(navigator.userAgent);
+        if (!isStandalone && isChromeBrowser) {
+            installButton.hidden = false;
+        }
 
         // App Installer Button
         const appInstallerButton = document.getElementById('appInstallerButton');
