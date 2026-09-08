@@ -835,8 +835,8 @@ a {
                     <a class="button button-secondary" href="Settings.html">Settings</a>
                     <a class="button button-secondary" href="contact.html">Website Info</a>
                     <a class="button button-secondary" href="Legacy.html">Legacy Mode</a>
-                    <button id="appInstallerButton" class="button button-install" type="button" hidden>Install App</button>
                     <button id="installButton" class="button button-install" type="button" hidden>Install AZHA MOH</button>
+                    <button id="updateAppButton" class="button button-secondary" type="button" hidden>Check for updates</button>
                     <button id="logoutButton" class="button button-ghost" type="button" hidden>Log Out</button>
                 </div>
             </div>
@@ -1092,6 +1092,7 @@ a {
         const profileLogo = document.getElementById('profileLogo');
         const userProfilePic = document.getElementById('userProfilePic');
         const installButton = document.getElementById('installButton');
+        const updateAppButton = document.getElementById('updateAppButton');
         let deferredInstallPrompt = null;
         const loaderStartedAt = Date.now();
 
@@ -1126,7 +1127,30 @@ a {
             installButton.hidden = eventPlatform.includes('win');
         });
 
+        async function downloadWindowsInstaller() {
+            let installerUrl = './azhamohsetup.exe';
+            try {
+                const response = await fetch('/api/installer-url', { cache: 'no-store' });
+                if (response.ok) {
+                    const data = await response.json();
+                    installerUrl = data.url || installerUrl;
+                }
+            } catch (error) {
+                console.warn('Installer URL lookup failed:', error);
+            }
+            const link = document.createElement('a');
+            link.href = installerUrl;
+            link.download = 'azhamohsetup.exe';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
         installButton?.addEventListener('click', async () => {
+            if (isWindows) {
+                await downloadWindowsInstaller();
+                return;
+            }
             if (!deferredInstallPrompt) {
                 alert('To install AZHA MOH, open the Chrome menu, choose Save and share, then select Install page as app.');
                 return;
@@ -1143,41 +1167,39 @@ a {
         const isChromeOS = platform.includes('cros') || /CrOS/i.test(navigator.userAgent);
         const isChromeBrowser = /Chrome\//i.test(navigator.userAgent) || isChromeOS;
 
-        // App Installer Button
-        const appInstallerButton = document.getElementById('appInstallerButton');
-        appInstallerButton?.addEventListener('click', async () => {
-            let installerUrl = './azhamohsetup.exe';
-            try {
-                const response = await fetch('/api/installer-url', { cache: 'no-store' });
-                if (response.ok) {
-                    const data = await response.json();
-                    installerUrl = data.url || installerUrl;
-                }
-            } catch (error) {
-                console.warn('Installer URL lookup failed:', error);
-            }
-            const link = document.createElement('a');
-            link.href = installerUrl;
-            link.download = 'azhamohsetup.exe';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        });
-
         // Windows uses the desktop installer; Chrome OS uses the installable PWA.
-        appInstallerButton.hidden = !isWindows;
-        if (!isStandalone && (isChromeBrowser || deferredInstallPrompt)) {
-            installButton.hidden = isWindows;
-        } else if (isWindows) {
-            installButton.hidden = true;
-        }
-        if (isChromeOS) {
-            installButton.textContent = 'Install AZHA MOH for Chrome OS';
-        } else if (isWindows) {
-            installButton.hidden = true;
-        }
         if (isWindows) {
-            appInstallerButton.hidden = false;
+            installButton.textContent = 'Install AZHA MOH';
+            installButton.hidden = false;
+        } else if (isChromeOS) {
+            installButton.textContent = 'Install AZHA MOH for Chrome OS';
+            installButton.hidden = isStandalone;
+        } else {
+            installButton.hidden = isStandalone || !(isChromeBrowser || deferredInstallPrompt);
+        }
+
+        if (window.azhaDesktop?.enabled && updateAppButton) {
+            updateAppButton.hidden = false;
+            updateAppButton.addEventListener('click', async () => {
+                updateAppButton.disabled = true;
+                updateAppButton.textContent = 'Checking for updates...';
+                try {
+                    const result = await window.azhaDesktop.checkForUpdates();
+                    if (!result.ok) {
+                        alert(result.message || 'Unable to check for updates right now.');
+                    } else if (result.updateAvailable) {
+                        const shouldDownload = confirm(`AZHA MOH ${result.version} is available. Download the update now?`);
+                        if (shouldDownload) await window.azhaDesktop.downloadUpdate(result.downloadUrl);
+                    } else {
+                        alert(`AZHA MOH is up to date (${result.currentVersion}).`);
+                    }
+                } catch (error) {
+                    alert('Unable to check for updates right now.');
+                } finally {
+                    updateAppButton.disabled = false;
+                    updateAppButton.textContent = 'Check for updates';
+                }
+            });
         }
 
         // --- Video Modal Management ---
