@@ -33,6 +33,14 @@ app.use(express.static(path.join(__dirname)));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10mb' }));
 
+app.get('/api/desktop-update', (req, res) => {
+    res.json({
+        version: String(process.env.AZHA_DESKTOP_VERSION || '1.0.0'),
+        downloadUrl: String(process.env.AZHA_INSTALLER_URL || '').trim(),
+        releaseNotes: String(process.env.AZHA_DESKTOP_RELEASE_NOTES || '').trim()
+    });
+});
+
 app.get('/api/installer-url', (req, res) => {
     res.json({ url: String(process.env.AZHA_INSTALLER_URL || '/azhamohsetup.exe').trim() });
 });
