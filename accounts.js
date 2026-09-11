@@ -4,6 +4,11 @@ console.log('Using backend-first account helpers with local fallback');
 
 const apiBaseUrl = window.location.origin;
 let backendAvailable = null;
+const OWNER_USERNAMES = new Set(['AZHA', 'AZHA MOH']);
+
+function isOwnerUsername(username) {
+    return OWNER_USERNAMES.has(String(username || '').trim().toUpperCase());
+}
 const MEMBERSHIP_PLANS = {
     PLUS: { key: 'PLUS', label: 'Plus', azincCost: 1, dailyRewardAmount: 35, rewardAmount: 35, rewardInterval: 'day', features: [] },
     PRO: { key: 'PRO', label: 'Pro', azincCost: 2, dailyRewardAmount: 1555, rewardAmount: 1555, rewardInterval: 'day', features: ['messages'] },
@@ -13,10 +18,10 @@ const MEMBERSHIP_PLANS = {
 
 const defaultAccounts = {
     AZHA: {
-        username: 'AZHA',
-        password: 'AZ MOH',
+        username: 'AZHA MOH',
+        password: 'AZHA MOH',
         fullName: 'AZHAFUDDiN MOHAMMED',
-        profilePic: '',
+        profilePic: 'channels',
         isAdmin: true,
         warnings: 0,
         status: 'active',
@@ -99,15 +104,15 @@ function mergeBalances(balances = {}, accounts = {}) {
     const merged = {};
     Object.keys({ AZHA: 'INF', ...balances }).forEach((username) => {
         if (!validUsers.has(username)) return;
-        merged[username] = username === 'AZHA' ? 'INF' : balances[username];
+        merged[username] = isOwnerUsername(username) ? 'INF' : balances[username];
     });
     validUsers.forEach((username) => {
         if (!Object.prototype.hasOwnProperty.call(merged, username)) {
-            merged[username] = username === 'AZHA' ? 'INF' : 0;
+            merged[username] = isOwnerUsername(username) ? 'INF' : 0;
         }
     });
     Object.keys(merged).forEach((username) => {
-        if (username === 'AZHA') {
+        if (isOwnerUsername(username)) {
             merged[username] = 'INF';
             return;
         }
@@ -151,7 +156,7 @@ function normalizeMembershipView(membership = {}) {
 
 function hasMembershipFeature(account, feature) {
     if (!account) return false;
-    if (account.username === 'AZHA') return true;
+    if (isOwnerUsername(account.username)) return true;
     const membership = normalizeMembershipView(account.membership || {});
     return membership.active && membership.features.includes(feature);
 }
@@ -162,7 +167,7 @@ function isManagedOrganizationAccount(account) {
 }
 
 function sanitizeDisplayBalance(username, balance) {
-    if (username === 'AZHA') return 'INF';
+    if (isOwnerUsername(username)) return 'INF';
     if (balance === 'INF' || Number.isNaN(Number(balance))) return 0;
     return Number(balance || 0);
 }
@@ -178,7 +183,7 @@ function decorateAccountForClient(account, balance) {
             lastError: account.storagePreference?.lastError || '',
             supabaseUrl: account.storagePreference?.supabaseUrl || '',
             hasKey: Boolean(account.storagePreference?.supabaseKey),
-            sharedAllowed: account.username === 'AZHA' || hasMembershipFeature(account, 'shared-storage')
+            sharedAllowed: isOwnerUsername(account.username) || hasMembershipFeature(account, 'shared-storage')
         },
         accountType: ['school', 'work'].includes(String(account?.browserProfile?.organization?.type || '').toLowerCase())
             ? String(account.browserProfile.organization.type).toLowerCase()
@@ -464,7 +469,7 @@ async function showDeviceNotification(title, options = {}) {
     const payload = {
         body: options.body || '',
         icon: 'AZHA.PNG',
-        badge: 'channels4profile.jpg',
+        badge: 'channels4_profile.png',
         image: 'AZHA.PNG',
         tag: options.tag,
         data: { url: options.url || '' },
@@ -1148,6 +1153,11 @@ async function toggleBan(username, action) {
 async function deleteUserAccount(username) {
     const actor = localStorage.getItem('currentUsername');
     try {
+        // Protect AZHA MOH and AZHA users from deletion
+        if (isOwnerUsername(username)) {
+            throw new Error(`Cannot delete ${username}. This account is protected.`);
+        }
+        
         if (await hasBackend()) {
             await apiRequest(`/api/users/${encodeURIComponent(username)}`, {
                 method: 'DELETE',
@@ -1157,7 +1167,6 @@ async function deleteUserAccount(username) {
             const accounts = readAccounts();
             const key = Object.keys(accounts).find((entry) => accounts[entry].username.toLowerCase() === username.toLowerCase());
             if (!key) throw new Error('User not found');
-            if (accounts[key].username === 'AZHA') throw new Error('Cannot delete AZHA');
             delete accounts[key];
             writeAccounts(accounts);
             const balances = readBalancesLocal();
