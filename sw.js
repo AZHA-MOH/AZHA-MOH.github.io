@@ -1,4 +1,5 @@
-const CACHE_NAME = 'azha-launchpad-v14';
+const CACHE_VERSION = '16'; // Increment this number on every update
+const CACHE_NAME = 'azha-launchpad-v' + CACHE_VERSION;
 const PAGES_TO_CACHE = [
     '/',
     '/index.html',
